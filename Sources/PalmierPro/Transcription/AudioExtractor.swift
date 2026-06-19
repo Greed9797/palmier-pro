@@ -47,6 +47,7 @@ enum AudioExtractor {
         do {
             try await session.export(to: outputURL, as: .m4a)
         } catch {
+            try? FileManager.default.removeItem(at: outputURL)  // no partial temp left behind
             throw DeepgramError.audioExtractionFailed(error.localizedDescription)
         }
         return outputURL

@@ -143,7 +143,10 @@ extension EditorViewModel {
                 firstError = firstError ?? error
             }
         }
-        if results.isEmpty, let firstError { throw firstError }
+        // On-device: best-effort (only fail if every clip failed). Deepgram: a per-clip
+        // failure (401/quota/network) is deterministic and worth surfacing — don't hide it
+        // behind partial success.
+        if let firstError, results.isEmpty || useDeepgram { throw firstError }
         return results
     }
 

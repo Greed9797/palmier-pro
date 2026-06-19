@@ -92,7 +92,9 @@ struct TranscriptionPane: View {
     private func refresh() {
         let key = DeepgramKeychain.load() ?? ""
         hasKey = !key.isEmpty
-        masked = key.count > 4 ? String(repeating: "\u{2022}", count: 32) + key.suffix(4) : String(repeating: "\u{2022}", count: 24)
+        masked = key.count > 4
+            ? String(repeating: "\u{2022}", count: 32) + key.suffix(4)
+            : String(repeating: "\u{2022}", count: min(key.count, 24))
     }
 
     private func save() {

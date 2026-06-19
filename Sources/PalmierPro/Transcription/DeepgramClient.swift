@@ -36,7 +36,12 @@ struct DeepgramClient {
             URLQueryItem(name: "smart_format", value: "true"),
             URLQueryItem(name: "utterances", value: "true"),
         ]
-        if let language, !language.isEmpty { items.append(URLQueryItem(name: "language", value: language)) }
+        if let language, !language.isEmpty {
+            items.append(URLQueryItem(name: "language", value: language))
+        } else {
+            // No explicit locale → let Deepgram detect it (else nova-3 silently assumes English).
+            items.append(URLQueryItem(name: "detect_language", value: "true"))
+        }
         comps.queryItems = items
 
         var request = URLRequest(url: comps.url!)
@@ -48,7 +53,10 @@ struct DeepgramClient {
 
         if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
             let err = try? JSONDecoder.deepgram.decode(DGErrorBody.self, from: data)
-            throw DeepgramError.http(status: http.statusCode, errCode: err?.errCode, errMsg: err?.errMsg)
+            throw DeepgramError.http(
+                status: http.statusCode,
+                errCode: err?.errCode ?? err?.error,
+                errMsg: err?.errMsg ?? err?.message)
         }
 
         let decoded: DGResponse
@@ -134,4 +142,6 @@ private struct DGWord: Decodable {
 private struct DGErrorBody: Decodable {
     let errCode: String?
     let errMsg: String?
+    let error: String?
+    let message: String?
 }
