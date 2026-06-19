@@ -3,99 +3,146 @@ import SwiftUI
 
 struct AgentPane: View {
     @Bindable private var appState = AppState.shared
-    @State private var hasKey: Bool = false
-    @State private var maskedKey: String = ""
-    @State private var draft: String = ""
-    @FocusState private var isFocused: Bool
-
-    private let consoleURL = URL(string: "https://console.anthropic.com/settings/keys")!
+    @State private var agentService = AgentService.shared
+    @State private var selectedTab: LLMProvider = AgentService.shared.selectedProvider
+    @State private var draftKeys: [LLMProvider: String] = [:]
+    @State private var maskedKeys: [LLMProvider: String] = [:]
+    @State private var hasKeys: [LLMProvider: Bool] = [:]
+    @FocusState private var focusedProvider: LLMProvider?
 
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
-            apiKeySection
+            providerSection
             Divider().overlay(AppTheme.Border.subtleColor)
             mcpSection
         }
-        .onAppear(perform: refresh)
+        .onAppear(perform: refreshAll)
     }
 
-    private var apiKeySection: some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.smMd) {
-            header
-            keyField
+    // MARK: - Provider section
+
+    private var providerSection: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+            providerPicker
+            keySection(for: selectedTab)
         }
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
-            Text("Anthropic API Key")
-                .font(.system(size: AppTheme.FontSize.md, weight: .medium))
-                .foregroundStyle(AppTheme.Text.primaryColor)
+    private var providerPicker: some View {
+        HStack(spacing: 0) {
+            ForEach(LLMProvider.allCases) { provider in
+                providerTab(provider)
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: AppTheme.Radius.sm)
+                .fill(Color.black.opacity(AppTheme.Opacity.muted))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.Radius.sm)
+                .strokeBorder(AppTheme.Border.subtleColor, lineWidth: AppTheme.BorderWidth.thin)
+        )
+    }
 
-            HStack(alignment: .firstTextBaseline, spacing: AppTheme.Spacing.sm) {
-                Text("Used your own API key for the AI chat. Stored in your macOS Keychain.")
-                    .font(.system(size: AppTheme.FontSize.sm))
-                    .foregroundStyle(AppTheme.Text.tertiaryColor)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Button(action: { NSWorkspace.shared.open(consoleURL, configuration: .init(), completionHandler: nil) }) {
-                    HStack(spacing: 2) {
-                        Text("Get Anthropic API key")
-                        Image(systemName: "arrow.up.right")
-                            .font(.system(size: AppTheme.FontSize.xs, weight: .semibold))
-                    }
-                    .font(.system(size: AppTheme.FontSize.sm))
-                    .foregroundStyle(AppTheme.Accent.primary)
+    private func providerTab(_ provider: LLMProvider) -> some View {
+        let isSelected = selectedTab == provider
+        let isActive = agentService.selectedProvider == provider
+        return Button(action: { selectedTab = provider }) {
+            HStack(spacing: AppTheme.Spacing.xs) {
+                if hasKeys[provider] == true {
+                    Circle()
+                        .fill(isActive ? AppTheme.Accent.primary : Color.green.opacity(0.7))
+                        .frame(width: 5, height: 5)
                 }
-                .buttonStyle(.plain)
-                .fixedSize()
+                Text(provider.displayName)
+                    .font(.system(size: AppTheme.FontSize.sm, weight: isSelected ? .medium : .regular))
+                    .foregroundStyle(isSelected ? AppTheme.Text.primaryColor : AppTheme.Text.tertiaryColor)
+            }
+            .padding(.horizontal, AppTheme.Spacing.md)
+            .padding(.vertical, AppTheme.Spacing.smMd)
+            .background(
+                RoundedRectangle(cornerRadius: AppTheme.Radius.xs)
+                    .fill(isSelected ? AppTheme.Accent.primary.opacity(AppTheme.Opacity.faint) : Color.clear)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func keySection(for provider: LLMProvider) -> some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.smMd) {
+            keyHeader(for: provider)
+            keyField(for: provider)
+            if hasKeys[provider] == true {
+                useProviderButton(provider)
             }
         }
     }
 
-    private var keyField: some View {
-        HStack(spacing: AppTheme.Spacing.sm) {
-            fieldBox
-            trailingControl
+    private func keyHeader(for provider: LLMProvider) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: AppTheme.Spacing.sm) {
+            Text("API Key")
+                .font(.system(size: AppTheme.FontSize.md, weight: .medium))
+                .foregroundStyle(AppTheme.Text.primaryColor)
+
+            Spacer()
+
+            Button(action: { NSWorkspace.shared.open(provider.consoleURL, configuration: .init(), completionHandler: nil) }) {
+                HStack(spacing: 2) {
+                    Text("Get \(provider.displayName) key")
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: AppTheme.FontSize.xs, weight: .semibold))
+                }
+                .font(.system(size: AppTheme.FontSize.sm))
+                .foregroundStyle(AppTheme.Accent.primary)
+            }
+            .buttonStyle(.plain)
         }
     }
 
-    private var fieldBox: some View {
-        SecureField(placeholder, text: $draft)
-            .textFieldStyle(.plain)
-            .focused($isFocused)
-            .font(.system(size: AppTheme.FontSize.sm, design: .monospaced))
-            .foregroundStyle(AppTheme.Text.primaryColor)
-            .onSubmit(save)
-            .padding(.horizontal, AppTheme.Spacing.md)
-            .padding(.vertical, AppTheme.Spacing.smMd)
-            .background(
-                RoundedRectangle(cornerRadius: AppTheme.Radius.sm)
-                    .fill(Color.black.opacity(AppTheme.Opacity.muted))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: AppTheme.Radius.sm)
-                    .strokeBorder(
-                        isFocused ? AppTheme.Border.primaryColor : AppTheme.Border.subtleColor,
-                        lineWidth: AppTheme.BorderWidth.thin
-                    )
-            )
-            .animation(.easeOut(duration: AppTheme.Anim.hover), value: isFocused)
-    }
+    private func keyField(for provider: LLMProvider) -> some View {
+        let draft = Binding<String>(
+            get: { draftKeys[provider] ?? "" },
+            set: { draftKeys[provider] = $0 }
+        )
+        let isFocused = focusedProvider == provider
+        let hasKey = hasKeys[provider] == true
+        let masked = maskedKeys[provider] ?? ""
 
-    private var placeholder: String {
-        hasKey ? maskedKey : "sk-ant-..."
+        return HStack(spacing: AppTheme.Spacing.sm) {
+            SecureField(hasKey ? masked : provider.apiKeyPlaceholder, text: draft)
+                .textFieldStyle(.plain)
+                .focused($focusedProvider, equals: provider)
+                .font(.system(size: AppTheme.FontSize.sm, design: .monospaced))
+                .foregroundStyle(AppTheme.Text.primaryColor)
+                .onSubmit { save(provider: provider) }
+                .padding(.horizontal, AppTheme.Spacing.md)
+                .padding(.vertical, AppTheme.Spacing.smMd)
+                .background(
+                    RoundedRectangle(cornerRadius: AppTheme.Radius.sm)
+                        .fill(Color.black.opacity(AppTheme.Opacity.muted))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.Radius.sm)
+                        .strokeBorder(
+                            isFocused ? AppTheme.Border.primaryColor : AppTheme.Border.subtleColor,
+                            lineWidth: AppTheme.BorderWidth.thin
+                        )
+                )
+                .animation(.easeOut(duration: AppTheme.Anim.hover), value: isFocused)
+
+            trailingControl(for: provider, draft: draft.wrappedValue, hasKey: hasKey)
+        }
     }
 
     @ViewBuilder
-    private var trailingControl: some View {
+    private func trailingControl(for provider: LLMProvider, draft: String, hasKey: Bool) -> some View {
         let trimmed = draft.trimmingCharacters(in: .whitespaces)
         if !trimmed.isEmpty {
-            Button("Save", action: save)
+            Button("Save") { save(provider: provider) }
                 .buttonStyle(.capsule(.prominent, size: .regular))
                 .controlSize(.large)
         } else if hasKey {
-            Button(action: remove) {
+            Button(action: { remove(provider: provider) }) {
                 Image(systemName: "trash")
                     .font(.system(size: AppTheme.FontSize.md))
                     .foregroundStyle(AppTheme.Text.secondaryColor)
@@ -103,29 +150,62 @@ struct AgentPane: View {
             }
             .buttonStyle(.capsule(.secondary, size: .regular))
             .controlSize(.large)
-            .help("Remove API key")
+            .help("Remove \(provider.displayName) API key")
         }
     }
 
-    private func refresh() {
-        let key = AnthropicKeychain.load() ?? ""
-        hasKey = !key.isEmpty
-        maskedKey = mask(key)
+    private func useProviderButton(_ provider: LLMProvider) -> some View {
+        let isActive = agentService.selectedProvider == provider
+        return HStack {
+            if isActive {
+                Label("Active for agent chat", systemImage: "checkmark.circle.fill")
+                    .font(.system(size: AppTheme.FontSize.sm))
+                    .foregroundStyle(AppTheme.Accent.primary)
+            } else {
+                Button("Use \(provider.displayName) for agent chat") {
+                    agentService.selectedProvider = provider
+                }
+                .buttonStyle(.capsule(.secondary, size: .regular))
+                .font(.system(size: AppTheme.FontSize.sm))
+            }
+        }
     }
 
-    private func save() {
-        let key = draft.trimmingCharacters(in: .whitespaces)
+    // MARK: - Actions
+
+    private func refreshAll() {
+        for provider in LLMProvider.allCases {
+            refresh(provider: provider)
+        }
+    }
+
+    private func refresh(provider: LLMProvider) {
+        let key = ProviderKeychain.load(for: provider) ?? ""
+        hasKeys[provider] = !key.isEmpty
+        maskedKeys[provider] = mask(key)
+    }
+
+    private func save(provider: LLMProvider) {
+        let key = (draftKeys[provider] ?? "").trimmingCharacters(in: .whitespaces)
         guard !key.isEmpty else { return }
-        AnthropicKeychain.save(key)
-        draft = ""
-        isFocused = false
-        refresh()
+        ProviderKeychain.save(key, for: provider)
+        draftKeys[provider] = ""
+        focusedProvider = nil
+        refresh(provider: provider)
+        // Auto-activate newly configured provider
+        if agentService.selectedProvider != provider {
+            agentService.selectedProvider = provider
+        }
     }
 
-    private func remove() {
-        AnthropicKeychain.delete()
-        draft = ""
-        refresh()
+    private func remove(provider: LLMProvider) {
+        ProviderKeychain.delete(for: provider)
+        draftKeys[provider] = ""
+        refresh(provider: provider)
+        // Switch back to Anthropic if active provider was removed
+        if agentService.selectedProvider == provider {
+            agentService.selectedProvider = .anthropic
+        }
     }
 
     private func mask(_ key: String) -> String {
@@ -133,7 +213,7 @@ struct AgentPane: View {
         return String(repeating: "\u{2022}", count: 36) + key.suffix(4)
     }
 
-    // MARK: - MCP server
+    // MARK: - MCP section
 
     private var mcpSection: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.smMd) {

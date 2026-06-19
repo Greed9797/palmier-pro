@@ -5,28 +5,31 @@ import Observation
 @MainActor
 final class AgentService {
 
-    private var apiKey: String = ""
+    private var apiKeys: [LLMProvider: String] = [:]
     private var apiKeyObserver: NSObjectProtocol?
 
     init() {
-        reloadAPIKey()
+        reloadAPIKeys()
         apiKeyObserver = NotificationCenter.default.addObserver(
-            forName: .anthropicAPIKeyChanged,
+            forName: .providerAPIKeyChanged,
             object: nil,
             queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.reloadAPIKey()
+                self?.reloadAPIKeys()
             }
         }
     }
 
-    private func reloadAPIKey() {
+    private func reloadAPIKeys() {
         Task { [weak self] in
-            let key = await Task.detached(priority: .utility) {
-                AnthropicKeychain.load() ?? ""
-            }.value
-            self?.apiKey = key
+            var keys: [LLMProvider: String] = [:]
+            for provider in LLMProvider.allCases {
+                keys[provider] = await Task.detached(priority: .utility) {
+                    ProviderKeychain.load(for: provider) ?? ""
+                }.value
+            }
+            self?.apiKeys = keys
         }
     }
 
@@ -36,42 +39,81 @@ final class AgentService {
         }
     }
 
-    var hasApiKey: Bool { !apiKey.isEmpty }
+    var selectedProvider: LLMProvider = {
+        if let raw = UserDefaults.standard.string(forKey: "agentProvider"),
+           let p = LLMProvider(rawValue: raw) { return p }
+        return .anthropic
+    }() {
+        didSet {
+            UserDefaults.standard.set(selectedProvider.rawValue, forKey: "agentProvider")
+            if !selectedProvider.models.contains(selectedModel) {
+                selectedModel = selectedProvider.models.first ?? selectedModel
+            }
+        }
+    }
+
+    var selectedModel: LLMModel = {
+        let providerRaw = UserDefaults.standard.string(forKey: "agentProvider") ?? LLMProvider.anthropic.rawValue
+        let provider = LLMProvider(rawValue: providerRaw) ?? .anthropic
+        if let modelId = UserDefaults.standard.string(forKey: "agentModelId"),
+           let m = provider.models.first(where: { $0.id == modelId }) { return m }
+        // Migrate from old "agentModel" key
+        if let legacy = UserDefaults.standard.string(forKey: "agentModel"),
+           let m = LLMProvider.anthropic.models.first(where: { $0.id == legacy }) { return m }
+        return LLMProvider.anthropic.models.first { $0.id == AnthropicModel.sonnet46.rawValue }
+            ?? LLMProvider.anthropic.models[0]
+    }() {
+        didSet { UserDefaults.standard.set(selectedModel.id, forKey: "agentModelId") }
+    }
+
+    private var activeApiKey: String? {
+        let key = apiKeys[selectedProvider] ?? ""
+        return key.isEmpty ? nil : key
+    }
+
+    var hasApiKey: Bool { activeApiKey != nil }
 
     var canStream: Bool {
-        if hasApiKey { return true }
+        if activeApiKey != nil { return true }
         let account = AccountService.shared
         return account.isSignedIn && account.hasCredits
     }
 
-    var availableModels: [AnthropicModel] {
-        if hasApiKey { return AnthropicModel.allCases }
-        return AccountService.shared.isPaid ? [.sonnet46] : [.haiku45]
+    var availableModels: [LLMModel] {
+        if activeApiKey != nil { return selectedProvider.models }
+        let isPaid = AccountService.shared.isPaid
+        return LLMProvider.anthropic.models.filter {
+            isPaid ? $0.id == AnthropicModel.sonnet46.rawValue : $0.id == AnthropicModel.haiku45.rawValue
+        }
     }
 
     private func selectClient() -> (any AgentClient)? {
-        let chosen = effectiveModel
-        if hasApiKey { return AnthropicClient(apiKey: apiKey, model: chosen) }
+        if let key = activeApiKey {
+            switch selectedProvider {
+            case .anthropic:
+                let m = AnthropicModel(rawValue: effectiveModel.id) ?? .sonnet46
+                return AnthropicClient(apiKey: key, model: m)
+            case .openAI, .gemini, .minimax:
+                return OpenAICompatClient(apiKey: key, model: effectiveModel)
+            }
+        }
         if AccountService.shared.isSignedIn {
-            return PalmierClient(model: chosen)
+            let m = AnthropicModel(rawValue: effectiveModel.id) ?? .sonnet46
+            return PalmierClient(model: m)
         }
         return nil
     }
 
-    var effectiveModel: AnthropicModel {
+    var effectiveModel: LLMModel {
         let available = availableModels
-        if available.contains(model) { return model }
-        return available.first ?? .sonnet46
+        if available.contains(selectedModel) { return selectedModel }
+        return available.first ?? LLMProvider.anthropic.models[0]
     }
 
-    var model: AnthropicModel = {
-        if let raw = UserDefaults.standard.string(forKey: "agentModel"),
-           let m = AnthropicModel(rawValue: raw) {
-            return m
-        }
-        return .sonnet46
-    }() {
-        didSet { UserDefaults.standard.set(model.rawValue, forKey: "agentModel") }
+    // Backward-compat alias used by AgentPanelView model picker
+    var model: LLMModel {
+        get { selectedModel }
+        set { selectedModel = newValue }
     }
 
     var sessions: [ChatSession] = []
@@ -296,7 +338,7 @@ final class AgentService {
 
     func send(text: String, mentions: [AgentMention]) {
         guard canStream else {
-            streamError = .upstream("Sign in to a paid plan or add an Anthropic API key to start.")
+            streamError = .upstream("Sign in to a paid plan or add an API key in Settings → Agent.")
             return
         }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -4,27 +4,19 @@ extension Notification.Name {
     static let anthropicAPIKeyChanged = Notification.Name("anthropicAPIKeyChanged")
 }
 
+// Delegates to ProviderKeychain; kept for backward compatibility.
 enum AnthropicKeychain {
-    private static let account = "anthropic-api-key"
-
     static func save(_ key: String) {
-        KeychainStore.save(key, account: account)
+        ProviderKeychain.save(key, for: .anthropic)
         NotificationCenter.default.post(name: .anthropicAPIKeyChanged, object: nil)
     }
 
     static func load() -> String? {
-        #if DEBUG
-        if let env = ProcessInfo.processInfo.environment["ANTHROPIC_API_KEY"]?
-            .trimmingCharacters(in: .whitespacesAndNewlines),
-           !env.isEmpty {
-            return env
-        }
-        #endif
-        return KeychainStore.load(account: account)
+        ProviderKeychain.load(for: .anthropic)
     }
 
     static func delete() {
-        KeychainStore.delete(account: account)
+        ProviderKeychain.delete(for: .anthropic)
         NotificationCenter.default.post(name: .anthropicAPIKeyChanged, object: nil)
     }
 }

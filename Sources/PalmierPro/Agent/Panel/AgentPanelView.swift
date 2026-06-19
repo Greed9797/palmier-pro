@@ -139,7 +139,7 @@ struct AgentPanelView: View {
     private var modelPicker: some View {
         if service.hasApiKey {
             Menu {
-                ForEach(service.availableModels, id: \.self) { m in
+                ForEach(service.availableModels, id: \.id) { m in
                     Button(m.displayName) { service.model = m }
                 }
             } label: {
@@ -161,10 +161,10 @@ struct AgentPanelView: View {
     @ViewBuilder
     private var byokIndicator: some View {
         if service.hasApiKey {
-            Text("using API key")
+            Text("\(service.selectedProvider.displayName) · API key")
                 .font(.system(size: AppTheme.FontSize.xs).italic())
                 .foregroundStyle(AppTheme.Text.tertiaryColor)
-                .help("Streaming through your Anthropic API key (BYOK)")
+                .help("Streaming through your \(service.selectedProvider.displayName) API key (BYOK)")
         }
     }
 
