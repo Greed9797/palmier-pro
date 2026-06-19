@@ -33,7 +33,7 @@ enum LLMProvider: String, CaseIterable, Codable, Identifiable, Hashable {
         case .anthropic: URL(string: "https://console.anthropic.com/settings/keys")!
         case .openAI: URL(string: "https://platform.openai.com/api-keys")!
         case .gemini: URL(string: "https://aistudio.google.com/app/apikey")!
-        case .minimax: URL(string: "https://platform.minimaxi.com/user-center/basic-information/interface-key")!
+        case .minimax: URL(string: "https://platform.minimax.io/user-center/basic-information/interface-key")!
         }
     }
 
