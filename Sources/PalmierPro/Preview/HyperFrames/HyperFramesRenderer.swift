@@ -103,19 +103,17 @@ final class HyperFramesRenderer: NSObject, WKNavigationDelegate {
         // 6. Per-frame: seek → snapshot → append (strictly one frame in flight).
         for i in 0..<totalFrames {
             try Task.checkCancellation()
-            let t = Double(i) / fps
-            do {
-                _ = try await view.callAsyncJavaScript(
-                    HyperFramesJS.seekBody, arguments: ["t": t, "fps": fps], contentWorld: .page)
-            } catch {
-                Log.app.error("HyperFrames seek failed at frame \(i): \(error.localizedDescription)")
-            }
+            await seekFrame(t: Double(i) / fps, fps: fps, frame: i)
 
             let config = WKSnapshotConfiguration()
             config.rect = CGRect(x: 0, y: 0, width: CGFloat(w), height: CGFloat(h))
             let image = try await view.takeSnapshot(configuration: config)
             guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+                Log.app.error("HyperFrames: snapshot \(i) produced no CGImage (reps: \(image.representations.count))")
                 throw HFError.snapshotFailed(i)
+            }
+            if i == 0, Self.looksBlank(cgImage) {
+                Log.app.error("HyperFrames: first frame is blank/transparent — the scene may not be rendering. Check that GSAP and all assets are inlined and <body> has an opaque background.")
             }
             try await appendFrame(cgImage, index: i, pool: pool, fps: fps, width: w, height: h)
             progress?(i + 1, totalFrames)
@@ -135,6 +133,43 @@ final class HyperFramesRenderer: NSObject, WKNavigationDelegate {
             try await Task.sleep(for: .milliseconds(50))
         }
         throw HFError.notReady
+    }
+
+    // MARK: - Seek
+
+    /// Seek + paint one frame, hard-bounded (10s) so a wedged WebKit compositor —
+    /// where requestAnimationFrame never fires — can't hang the whole render.
+    private func seekFrame(t: Double, fps: Double, frame: Int) async {
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            let once = ResumeOnce(cont)
+            Task { @MainActor [weak self] in
+                do {
+                    _ = try await self?.webView?.callAsyncJavaScript(
+                        HyperFramesJS.seekBody, arguments: ["t": t, "fps": fps], contentWorld: .page)
+                } catch {
+                    Log.app.error("HyperFrames seek failed at frame \(frame): \(error.localizedDescription)")
+                }
+                once.fire()
+            }
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(10))
+                once.fire(timedOutFrame: frame)
+            }
+        }
+    }
+
+    /// True when the whole image averages to fully transparent — a throttled/blank capture.
+    private static func looksBlank(_ cgImage: CGImage) -> Bool {
+        var pixel: [UInt8] = [0, 0, 0, 0]
+        let space = CGColorSpaceCreateDeviceRGB()
+        return pixel.withUnsafeMutableBytes { raw -> Bool in
+            guard let base = raw.baseAddress, let ctx = CGContext(
+                data: base, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ) else { return false }
+            ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: 1, height: 1))
+            return raw[3] == 0
+        }
     }
 
     // MARK: - Encoder
@@ -248,5 +283,21 @@ final class HyperFramesRenderer: NSObject, WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         loadContinuation?.resume(throwing: HFError.loadFailed(error.localizedDescription))
         loadContinuation = nil
+    }
+}
+
+/// Guards a seek continuation so exactly one of {seek-finished, timeout} resumes it.
+/// MainActor-isolated → both firing tasks serialize, no double-resume.
+@MainActor
+private final class ResumeOnce {
+    private var cont: CheckedContinuation<Void, Never>?
+    init(_ cont: CheckedContinuation<Void, Never>) { self.cont = cont }
+    func fire(timedOutFrame: Int? = nil) {
+        guard cont != nil else { return }
+        if let frame = timedOutFrame {
+            Log.app.error("HyperFrames seek timed out at frame \(frame) — capturing current paint.")
+        }
+        cont?.resume()
+        cont = nil
     }
 }
