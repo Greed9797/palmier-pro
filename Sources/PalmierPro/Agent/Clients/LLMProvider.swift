@@ -55,21 +55,22 @@ enum LLMProvider: String, CaseIterable, Codable, Identifiable, Hashable {
             return AnthropicModel.allCases.map { LLMModel(id: $0.rawValue, displayName: $0.displayName, provider: .anthropic) }
         case .openAI:
             return [
-                LLMModel(id: "gpt-4o", displayName: "GPT-4o", provider: .openAI),
-                LLMModel(id: "gpt-4o-mini", displayName: "GPT-4o mini", provider: .openAI),
-                LLMModel(id: "o3", displayName: "o3", provider: .openAI),
-                LLMModel(id: "o4-mini", displayName: "o4-mini", provider: .openAI),
+                LLMModel(id: "gpt-5.5", displayName: "GPT-5.5", provider: .openAI),
+                LLMModel(id: "gpt-5.5-pro", displayName: "GPT-5.5 Pro", provider: .openAI),
+                LLMModel(id: "gpt-5.4-mini", displayName: "GPT-5.4 mini", provider: .openAI),
+                LLMModel(id: "gpt-5.4-nano", displayName: "GPT-5.4 nano", provider: .openAI),
             ]
         case .gemini:
             return [
-                LLMModel(id: "gemini-2.5-pro", displayName: "Gemini 2.5 Pro", provider: .gemini),
-                LLMModel(id: "gemini-2.5-flash", displayName: "Gemini 2.5 Flash", provider: .gemini),
-                LLMModel(id: "gemini-2.0-flash", displayName: "Gemini 2.0 Flash", provider: .gemini),
+                LLMModel(id: "gemini-3.5-flash", displayName: "Gemini 3.5 Flash", provider: .gemini),
+                LLMModel(id: "gemini-3.1-pro-preview", displayName: "Gemini 3.1 Pro", provider: .gemini),
+                LLMModel(id: "gemini-3.1-flash-lite", displayName: "Gemini 3.1 Flash-Lite", provider: .gemini),
             ]
         case .minimax:
             return [
-                LLMModel(id: "MiniMax-Text-01", displayName: "MiniMax Text-01", provider: .minimax),
-                LLMModel(id: "abab6.5s-chat", displayName: "abab6.5s", provider: .minimax),
+                LLMModel(id: "MiniMax-M3", displayName: "MiniMax M3 (multimodal)", provider: .minimax),
+                LLMModel(id: "MiniMax-M2.7", displayName: "MiniMax M2.7", provider: .minimax),
+                LLMModel(id: "MiniMax-M2.5", displayName: "MiniMax M2.5", provider: .minimax),
             ]
         }
     }
