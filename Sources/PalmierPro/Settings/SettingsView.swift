@@ -120,6 +120,7 @@ private struct SettingsDetail: View {
                     case .general:
                         NotificationsPane()
                         PrivacyPane()
+                        TranscriptionPane()
                     case .models:
                         ModelsPane()
                     case .agent:

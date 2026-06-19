@@ -119,10 +119,17 @@ extension EditorViewModel {
     private func transcribe(_ targets: [CaptionTarget], request: CaptionRequest) async throws -> [String: TranscriptionResult] {
         var results: [String: TranscriptionResult] = [:]
         var firstError: Error?
+        let useDeepgram = DeepgramKeychain.hasKey
         for t in targets where results[t.clip.mediaRef] == nil {
             do {
                 guard let url = mediaResolver.resolveURL(for: t.clip.mediaRef) else { continue }
                 let range = visibleSourceUnion(for: t.clip.mediaRef, in: targets)
+                if useDeepgram {
+                    // BYOK Deepgram backend → same TranscriptionResult the rest of the pipeline consumes.
+                    results[t.clip.mediaRef] = try await DeepgramTranscriber.transcribe(
+                        sourceURL: url, range: range, language: request.locale?.identifier(.bcp47))
+                    continue
+                }
                 let isVideo = captionUsesVideoAudioExtraction(for: t.clip)
                 if request.censorProfanity || request.locale != nil {
                     // option variants produce different transcripts — bypass the cache
