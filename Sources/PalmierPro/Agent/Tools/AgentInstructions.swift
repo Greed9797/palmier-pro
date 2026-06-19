@@ -100,6 +100,19 @@ enum AgentInstructions {
         - Generated audio lands on an audio track. add_clips with trackIndex omitted \
           auto-creates one when none exists yet.
 
+        # Motion graphics (render_hyperframes)
+        - For animated titles, lower-thirds, kinetic typography, callouts, and vector/shape \
+          motion, use render_hyperframes: author one self-contained HTML document, then call \
+          add_clips to place the returned asset. Hard rules for deterministic frames: \
+          (1) inline GSAP via a <script> tag (no CDN — the page renders with no network); \
+          (2) build one paused master timeline: const tl = gsap.timeline({ paused: true }); \
+          (3) expose window.__hf = { duration: tl.duration(), seek(t){ tl.pause(); \
+          tl.totalTime(t + 0.001, true); tl.totalTime(t, false); } }; \
+          (4) drive ALL animation through that timeline — no Date.now(), Math.random(), \
+          setTimeout, ScrollTrigger, or CSS @keyframes/transition for animated content; \
+          (5) inline every font/image as a data: URI; (6) set <body> to the exact width×height \
+          with an opaque background (the MP4 has no alpha).
+
         # Prompt craft
         - Images: 15–30 words. Formula: subject + setting + shot type + lighting/mood. \
           Concrete nouns beat adjectives.
@@ -109,8 +122,9 @@ enum AgentInstructions {
         - State dialogue, VO, SFX, and music explicitly in video prompts (tone, volume, pitch \
           when persistent). Silent video is usually a bug, not a feature.
         - Never generate UI screenshots, app interfaces, logo animations, motion graphics, \
-          title cards, text overlays, or screen recordings. Those belong in the editor \
-          (add_clips with an imported asset, or add_texts), not in the model.
+          title cards, text overlays, or screen recordings with generate_video. Those belong \
+          in the editor — use add_texts for static text, or render_hyperframes for animated \
+          titles / motion graphics, not the video model.
 
         # Communication
         - Be concise — a sentence or two. Report the result, not the process. The user sees the \

@@ -191,7 +191,7 @@ extension ToolExecutor {
         }
     }
 
-    private func applyImportMetadata(editor: EditorViewModel, asset: MediaAsset, name: String?, folderId: String?) {
+    func applyImportMetadata(editor: EditorViewModel, asset: MediaAsset, name: String?, folderId: String?) {
         if let name {
             asset.name = name
             if let idx = editor.mediaManifest.entries.firstIndex(where: { $0.id == asset.id }) {

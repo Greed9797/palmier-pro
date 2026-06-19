@@ -53,6 +53,7 @@ final class ToolExecutor {
             case .renameFolder:  return try renameFolder(editor, args)
             case .deleteMedia:   return try deleteMedia(editor, args)
             case .deleteFolder:  return try deleteFolder(editor, args)
+            case .renderHyperframes: return try await renderHyperframes(editor, args)
             }
         } catch let err as ToolError {
             return .error(err.message)

@@ -31,6 +31,7 @@ enum ToolName: String, CaseIterable, Sendable {
     case renameFolder = "rename_folder"
     case deleteMedia = "delete_media"
     case deleteFolder = "delete_folder"
+    case renderHyperframes = "render_hyperframes"
 }
 
 struct AgentTool: @unchecked Sendable {
@@ -547,6 +548,22 @@ enum ToolDefinitions {
                 properties: [
                     "type": ["type": "string", "enum": ["video", "image", "audio", "upscale"], "description": "Filter by type. Omit to list all models."],
                 ]
+            )
+        ),
+        AgentTool(
+            name: .renderHyperframes,
+            description: "Renders an agent-authored HTML/CSS/GSAP motion-graphics composition to an MP4 and imports it as a media asset. Returns the new asset id; then call add_clips with that mediaRef to place it on the timeline. Use for animated titles, lower-thirds, kinetic typography, callouts, and data-driven vector/shape animation that GSAP can express — NOT for editing existing footage (use the clip tools for that). The HTML must be fully self-contained and deterministic: see the render_hyperframes rules in the system instructions.",
+            inputSchema: objectSchema(
+                properties: [
+                    "html": ["type": "string", "description": "Complete self-contained HTML document. Must set window.__hf = { duration: <seconds>, seek(t) {...} } where seek deterministically positions the GSAP master timeline at time t (seconds). Inline GSAP and ALL fonts/images as data: URIs — the page renders with no network or file access. No Date.now()/Math.random()/setTimeout-driven motion."],
+                    "durationSeconds": ["type": "number", "description": "Total composition length in seconds (>0, <=600). Fallback if window.__hf.duration is unset."],
+                    "width": ["type": "integer", "description": "Output width in px (default 1920, rounded down to even)."],
+                    "height": ["type": "integer", "description": "Output height in px (default 1080, rounded down to even)."],
+                    "fps": ["type": "number", "description": "Frames per second (default 30, max 60)."],
+                    "name": ["type": "string", "description": "Optional asset name."],
+                    "folderId": ["type": "string", "description": "Optional media folder id from list_folders."],
+                ],
+                required: ["html", "durationSeconds"]
             )
         ),
     ]
