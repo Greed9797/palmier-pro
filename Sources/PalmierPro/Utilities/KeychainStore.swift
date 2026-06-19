@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 /// File-backed BYOK key store. NOT the macOS Keychain — deliberately.
@@ -19,10 +20,20 @@ enum KeychainStore {
 
     private static var fileURL: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let dir = base.appendingPathComponent(Bundle.main.bundleIdentifier ?? "io.palmier.pro", isDirectory: true)
+        var dir = base.appendingPathComponent(Bundle.main.bundleIdentifier ?? "io.palmier.pro", isDirectory: true)
         try? FileManager.default.createDirectory(
             at: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        // createDirectory only applies attributes on creation — re-pin every call so a widened
+        // dir (chmod/Finder/another tool) can't leave credentials.json listable.
+        try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: dir.path)
+        excludeFromBackup(&dir)
         return dir.appendingPathComponent("credentials.json", isDirectory: false)
+    }
+
+    private static func excludeFromBackup(_ url: inout URL) {
+        var rv = URLResourceValues()
+        rv.isExcludedFromBackup = true
+        try? url.setResourceValues(rv)
     }
 
     private static func readAll() -> [String: String] {
@@ -34,10 +45,17 @@ enum KeychainStore {
 
     private static func writeAll(_ dict: [String: String]) {
         guard let data = try? JSONSerialization.data(withJSONObject: dict, options: [.sortedKeys]) else { return }
-        let url = fileURL
-        try? data.write(to: url, options: [.atomic])
-        // .atomic renames a fresh temp file into place → perms reset to umask default; re-pin to 0600.
-        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+        var url = fileURL
+        // Own the temp file at 0600 BEFORE any bytes land (Data's own `.atomic` would create the
+        // temp at umask default → brief world-readable window). Same dir → rename(2) is atomic and
+        // keeps the temp's inode + 0600 perms, overwriting any existing file.
+        let fm = FileManager.default
+        let tmp = url.deletingLastPathComponent()
+            .appendingPathComponent(".credentials.\(ProcessInfo.processInfo.processIdentifier).tmp")
+        fm.createFile(atPath: tmp.path, contents: nil, attributes: [.posixPermissions: 0o600])
+        guard (try? data.write(to: tmp, options: [])) != nil else { try? fm.removeItem(at: tmp); return }
+        if rename(tmp.path, url.path) != 0 { try? fm.removeItem(at: tmp) }
+        excludeFromBackup(&url)
     }
 
     static func save(_ value: String, account: String) {
