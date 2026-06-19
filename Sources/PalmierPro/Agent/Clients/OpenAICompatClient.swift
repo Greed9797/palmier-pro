@@ -28,7 +28,8 @@ struct OpenAICompatClient: AgentClient {
         messages: [AnthropicMessage],
         continuation: AsyncThrowingStream<AnthropicStreamEvent, Error>.Continuation
     ) async throws {
-        guard !apiKey.isEmpty else { throw AnthropicClientError.missingAPIKey }
+        let key = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty else { throw AnthropicClientError.missingAPIKey }
         guard let endpoint = model.provider.openAIEndpoint else {
             throw AnthropicClientError.streamError("No endpoint for provider \(model.provider.rawValue)")
         }
@@ -37,7 +38,7 @@ struct OpenAICompatClient: AgentClient {
 
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
         request.httpBody = try JSONSerialization.data(withJSONObject: body, options: [.sortedKeys])

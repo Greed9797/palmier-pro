@@ -52,11 +52,12 @@ struct AnthropicClient: AgentClient {
         messages: [AnthropicMessage],
         continuation: AsyncThrowingStream<AnthropicStreamEvent, Error>.Continuation
     ) async throws {
-        guard !apiKey.isEmpty else { throw AnthropicClientError.missingAPIKey }
+        let key = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty else { throw AnthropicClientError.missingAPIKey }
 
         var request = URLRequest(url: Self.endpoint)
         request.httpMethod = "POST"
-        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+        request.setValue(key, forHTTPHeaderField: "x-api-key")
         request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
         request.setValue("application/json", forHTTPHeaderField: "content-type")
         request.setValue("text/event-stream", forHTTPHeaderField: "accept")

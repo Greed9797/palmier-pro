@@ -10,7 +10,7 @@ enum DeepgramKeychain {
     private static let account = "deepgram-api-key"
 
     static func save(_ key: String) {
-        KeychainStore.save(key, account: account)
+        KeychainStore.save(key.trimmingCharacters(in: .whitespacesAndNewlines), account: account)
         NotificationCenter.default.post(name: .deepgramAPIKeyChanged, object: nil)
     }
 

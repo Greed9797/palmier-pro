@@ -168,7 +168,7 @@ struct AgentPane: View {
 
     @ViewBuilder
     private func trailingControl(for provider: LLMProvider, draft: String, hasKey: Bool) -> some View {
-        let trimmed = draft.trimmingCharacters(in: .whitespaces)
+        let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.isEmpty {
             Button("Save") { save(provider: provider) }
                 .buttonStyle(.capsule(.prominent, size: .regular))
@@ -219,7 +219,7 @@ struct AgentPane: View {
     }
 
     private func save(provider: LLMProvider) {
-        let key = (draftKeys[provider] ?? "").trimmingCharacters(in: .whitespaces)
+        let key = (draftKeys[provider] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty else { return }
         ProviderKeychain.save(key, for: provider)
         draftKeys[provider] = ""

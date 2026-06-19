@@ -108,7 +108,9 @@ struct CLIClient: AgentClient {
         switch kind {
         case .claude:
             // palmier-pro MCP comes from the user-scope claude config; pre-allow its tools.
-            return "claude -p --permission-mode acceptEdits --allowedTools 'mcp__palmier-pro__*'\(modelArg)"
+            // skip-permissions: non-interactive -p otherwise blocks waiting to approve each
+            // MCP tool call (no TTY to confirm) → the run hangs forever.
+            return "claude -p --dangerously-skip-permissions\(modelArg)"
         case .codex:
             // codex loads the palmier-pro MCP server from ~/.codex/config.toml automatically.
             let out = codexOutFile.map { " -o '\($0)'" } ?? ""

@@ -27,7 +27,8 @@ struct DeepgramClient {
     var model: String = "nova-3"
 
     func transcribe(fileURL: URL, contentType: String, language: String?) async throws -> TranscriptionResult {
-        guard !apiKey.isEmpty else { throw DeepgramError.missingAPIKey }
+        let key = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty else { throw DeepgramError.missingAPIKey }
 
         var comps = URLComponents(string: "https://api.deepgram.com/v1/listen")!
         var items = [
@@ -46,7 +47,7 @@ struct DeepgramClient {
 
         var request = URLRequest(url: comps.url!)
         request.httpMethod = "POST"
-        request.setValue("Token \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("Token \(key)", forHTTPHeaderField: "Authorization")
         request.setValue(contentType, forHTTPHeaderField: "Content-Type")
 
         let (data, response) = try await URLSession.shared.upload(for: request, fromFile: fileURL)

@@ -6,7 +6,7 @@ extension Notification.Name {
 
 enum ProviderKeychain {
     static func save(_ key: String, for provider: LLMProvider) {
-        KeychainStore.save(key, account: provider.keychainAccount)
+        KeychainStore.save(key.trimmingCharacters(in: .whitespacesAndNewlines), account: provider.keychainAccount)
         NotificationCenter.default.post(name: .providerAPIKeyChanged, object: provider.rawValue)
     }
 

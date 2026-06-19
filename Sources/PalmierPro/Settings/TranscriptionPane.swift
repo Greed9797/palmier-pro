@@ -71,7 +71,7 @@ struct TranscriptionPane: View {
 
     @ViewBuilder
     private var trailingControl: some View {
-        let trimmed = draft.trimmingCharacters(in: .whitespaces)
+        let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.isEmpty {
             Button("Save", action: save)
                 .buttonStyle(.capsule(.prominent, size: .regular))
@@ -98,7 +98,7 @@ struct TranscriptionPane: View {
     }
 
     private func save() {
-        let key = draft.trimmingCharacters(in: .whitespaces)
+        let key = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty else { return }
         DeepgramKeychain.save(key)
         draft = ""
