@@ -43,7 +43,9 @@ enum HyperFramesJS {
         try { a.pause(); a.currentTime = qt * 1000; } catch(e) {}
       });
     } catch(e) {}
-    await new Promise(function(r){ requestAnimationFrame(function(){ requestAnimationFrame(r); }); });
+    await new Promise(function(r){
+      requestAnimationFrame(function(){ requestAnimationFrame(function(){ requestAnimationFrame(r); }); });
+    });
     return true;
     """
 }

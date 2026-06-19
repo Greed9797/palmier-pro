@@ -46,7 +46,8 @@ final class HyperFramesRenderer: NSObject, WKNavigationDelegate {
     private var videoInput: AVAssetWriterInput?
     private var adaptor: AVAssetWriterInputPixelBufferAdaptor?
 
-    func render(_ req: HFRenderRequest, progress: (@MainActor (Int, Int) -> Void)? = nil) async throws -> URL {
+    /// Returns the number of frames actually encoded.
+    func render(_ req: HFRenderRequest, progress: (@MainActor (Int, Int) -> Void)? = nil) async throws -> Int {
         defer { teardown() }
 
         let w = max(2, req.width - req.width % 2)
@@ -62,14 +63,28 @@ final class HyperFramesRenderer: NSObject, WKNavigationDelegate {
                              configuration: WKWebViewConfiguration())
         view.navigationDelegate = self
         win.contentView = view
+        NSApplication.shared.activate(ignoringOtherApps: false)
         win.orderFrontRegardless()
         self.window = win
         self.webView = view
 
         // 2. Load HTML (baseURL nil → no network/file access; assets must be inlined).
-        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
-            self.loadContinuation = cont
-            view.loadHTMLString(req.html, baseURL: nil)
+        //    Bounded by a timeout so a web-content-process crash / silent cancel can't hang forever.
+        let loadTimeout = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(15))
+            guard let self, self.loadContinuation != nil else { return }
+            self.loadContinuation?.resume(throwing: HFError.loadFailed("load timed out"))
+            self.loadContinuation = nil
+        }
+        do {
+            try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+                self.loadContinuation = cont
+                self.webView?.loadHTMLString(req.html, baseURL: nil)
+            }
+            loadTimeout.cancel()
+        } catch {
+            loadTimeout.cancel()
+            throw error
         }
 
         // 3. Wait for the scene to be seekable + assets decoded (cap ~6s).
@@ -89,8 +104,12 @@ final class HyperFramesRenderer: NSObject, WKNavigationDelegate {
         for i in 0..<totalFrames {
             try Task.checkCancellation()
             let t = Double(i) / fps
-            _ = try? await view.callAsyncJavaScript(
-                HyperFramesJS.seekBody, arguments: ["t": t, "fps": fps], contentWorld: .page)
+            do {
+                _ = try await view.callAsyncJavaScript(
+                    HyperFramesJS.seekBody, arguments: ["t": t, "fps": fps], contentWorld: .page)
+            } catch {
+                Log.app.error("HyperFrames seek failed at frame \(i): \(error.localizedDescription)")
+            }
 
             let config = WKSnapshotConfiguration()
             config.rect = CGRect(x: 0, y: 0, width: CGFloat(w), height: CGFloat(h))
@@ -104,7 +123,7 @@ final class HyperFramesRenderer: NSObject, WKNavigationDelegate {
 
         // 7. Finish.
         try await finishWriter()
-        return req.outputURL
+        return totalFrames
     }
 
     // MARK: - Readiness
@@ -129,7 +148,7 @@ final class HyperFramesRenderer: NSObject, WKNavigationDelegate {
             AVVideoHeightKey: height,
             AVVideoColorPropertiesKey: [
                 AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
-                AVVideoTransferFunctionKey: AVVideoTransferFunction_IEC_sRGB,
+                AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
                 AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2,
             ],
         ]
@@ -178,7 +197,14 @@ final class HyperFramesRenderer: NSObject, WKNavigationDelegate {
             }
             CVPixelBufferUnlockBaseAddress(buffer, [])
         }
-        while !input.isReadyForMoreMediaData { try await Task.sleep(for: .milliseconds(5)) }
+        let deadline = ContinuousClock.now + .seconds(30)
+        while !input.isReadyForMoreMediaData {
+            if let writer, writer.status == .failed {
+                throw HFError.encodeFailed(writer.error?.localizedDescription ?? "writer failed at frame \(index)")
+            }
+            if ContinuousClock.now > deadline { throw HFError.encodeFailed("encoder stalled at frame \(index)") }
+            try await Task.sleep(for: .milliseconds(5))
+        }
         let pts = CMTimeMakeWithSeconds(Double(index) / fps, preferredTimescale: 600)
         guard adaptor.append(buffer, withPresentationTime: pts) else {
             throw HFError.encodeFailed(writer?.error?.localizedDescription ?? "append failed at frame \(index)")
@@ -195,6 +221,8 @@ final class HyperFramesRenderer: NSObject, WKNavigationDelegate {
     }
 
     private func teardown() {
+        loadContinuation?.resume(throwing: HFError.loadFailed("renderer torn down"))
+        loadContinuation = nil
         webView?.navigationDelegate = nil
         webView?.stopLoading()
         window?.orderOut(nil)

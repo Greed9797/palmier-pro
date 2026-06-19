@@ -43,8 +43,9 @@ extension ToolExecutor {
             html: html, durationSeconds: input.durationSeconds,
             width: width, height: height, fps: fps, outputURL: destURL)
 
+        let frames: Int
         do {
-            _ = try await HyperFramesRenderer().render(request)
+            frames = try await HyperFramesRenderer().render(request)
         } catch {
             throw ToolError("HyperFrames render failed: \(error.localizedDescription)")
         }
@@ -54,7 +55,6 @@ extension ToolExecutor {
         }
         applyImportMetadata(editor: editor, asset: asset, name: input.name, folderId: input.folderId)
 
-        let frames = max(1, Int((input.durationSeconds * fps).rounded(.up)))
         return .ok("""
         Rendered HyperFrames composition '\(asset.name)' (id: \(asset.id), \(width)x\(height) @ \(Int(fps))fps, ~\(frames) frames). \
         It is now in the media library. Call add_clips with mediaRef \(asset.id) to place it on the timeline.
