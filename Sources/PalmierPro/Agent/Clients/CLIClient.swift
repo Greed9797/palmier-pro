@@ -103,18 +103,24 @@ struct CLIClient: AgentClient {
 
     // MARK: - Command + prompt
 
+    // Only the palmier-pro MCP server — NOT the user's full CLI MCP fleet. Loading every
+    // configured server (the user may have 20+, some needing auth) makes `-p`/`exec` hang
+    // for minutes at startup. strict/override pins it to just the editor's server.
+    private static let palmierMCP = "http://127.0.0.1:19789/mcp"
+
     private static func command(kind: Kind, model: LLMModel, codexOutFile: String?) -> String {
         let modelArg = isDefaultModel(model.id) ? "" : sanitizedModelFlag(kind: kind, id: model.id)
         switch kind {
         case .claude:
-            // palmier-pro MCP comes from the user-scope claude config; pre-allow its tools.
-            // skip-permissions: non-interactive -p otherwise blocks waiting to approve each
-            // MCP tool call (no TTY to confirm) → the run hangs forever.
-            return "claude -p --dangerously-skip-permissions\(modelArg)"
+            // --strict-mcp-config: ignore ~/.claude.json servers, load ONLY the one below.
+            // --dangerously-skip-permissions: -p has no TTY to approve tool calls → would hang.
+            let mcp = "--strict-mcp-config --mcp-config '{\"mcpServers\":{\"palmier-pro\":{\"type\":\"http\",\"url\":\"\(palmierMCP)\"}}}'"
+            return "claude -p --dangerously-skip-permissions \(mcp)\(modelArg)"
         case .codex:
-            // codex loads the palmier-pro MCP server from ~/.codex/config.toml automatically.
+            // -c mcp_servers={...}: override the codex config table to just palmier-pro.
+            let mcp = "-c 'mcp_servers={palmier-pro={url=\"\(palmierMCP)\"}}'"
             let out = codexOutFile.map { " -o '\($0)'" } ?? ""
-            return "codex exec --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox\(out)\(modelArg)"
+            return "codex exec --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox \(mcp)\(out)\(modelArg)"
         }
     }
 
