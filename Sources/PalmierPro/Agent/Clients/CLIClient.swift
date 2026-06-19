@@ -63,7 +63,6 @@ struct CLIClient: AgentClient {
         nonisolated(unsafe) let outHandle = outPipe.fileHandleForReading
         nonisolated(unsafe) let errHandle = errPipe.fileHandleForReading
         nonisolated(unsafe) let proc = process
-        nonisolated(unsafe) var didTimeout = false
 
         try Task.checkCancellation()
         try process.run()
@@ -72,11 +71,16 @@ struct CLIClient: AgentClient {
         stdinHandle.write(Data(prompt.utf8))
         try? stdinHandle.close()
 
+        // Drain stderr concurrently so a flood can't fill the pipe and block the process.
+        let errTask = Task.detached { String(decoding: errHandle.readDataToEndOfFile(), as: UTF8.self) }
+
         // Overall deadline — terminate the subprocess (closes stdout → ends the read loop)
-        // so a wedged CLI / MCP call can't spin forever.
+        // so a wedged CLI / MCP call can't spin forever. No shared flag: timeout is inferred
+        // post-hoc from the signal-kill + elapsed time (avoids a data race on a Bool).
+        let start = ContinuousClock.now
         let timeout = Task.detached {
             try? await Task.sleep(for: .seconds(Self.timeoutSeconds))
-            if proc.isRunning { didTimeout = true; proc.terminate() }
+            if proc.isRunning { proc.terminate() }
         }
         defer { timeout.cancel() }
 
@@ -98,10 +102,13 @@ struct CLIClient: AgentClient {
             // read-stream error — fall through to status handling
         }
 
-        await Task.detached { proc.waitUntilExit() }.value
-        let stderr = String(decoding: errHandle.readDataToEndOfFile(), as: UTF8.self)
+        timeout.cancel()
+        process.waitUntilExit()  // stdout EOF already means the process is exiting → returns immediately
+        let stderr = await errTask.value
+        let timedOut = process.terminationReason == .uncaughtSignal
+            && ContinuousClock.now - start >= .seconds(Self.timeoutSeconds - 1)
 
-        if didTimeout {
+        if timedOut {
             throw AnthropicClientError.streamError(
                 "\(kind.binary) timed out after \(Int(Self.timeoutSeconds))s and was stopped.")
         }
