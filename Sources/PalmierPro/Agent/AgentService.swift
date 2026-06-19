@@ -363,7 +363,7 @@ final class AgentService {
 
     func send(text: String, mentions: [AgentMention]) {
         guard canStream else {
-            streamError = .upstream("Sign in to a paid plan or add an API key in Settings → Agent.")
+            streamError = .upstream("Add your own API key (Gemini, MiniMax, OpenAI, Anthropic) or pick a CLI in Settings → Agent.")
             return
         }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)

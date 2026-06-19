@@ -281,8 +281,8 @@ struct AgentPanelView: View {
         guard let error else { return nil }
         switch error {
         case .unauthenticated:
-            return ErrorCTA(title: "Sign in") {
-                SettingsWindowController.shared.show(tab: .account)
+            return ErrorCTA(title: "Add API key") {
+                SettingsWindowController.shared.show(tab: .agent)
             }
         case .insufficientCredits:
             return ErrorCTA(title: "View plans") {
@@ -317,25 +317,36 @@ struct AgentPanelView: View {
     @ViewBuilder
     private var missingKeyState: some View {
         let account = AccountService.shared
-        HStack(alignment: .firstTextBaseline, spacing: 4) {
-            Button(action: { SettingsWindowController.shared.show(tab: .account) }) {
-                Text(missingKeyPrimaryAction(account: account))
-                    .underline()
-                    .foregroundStyle(AppTheme.Accent.primary)
-            }
-            .buttonStyle(.plain)
-
-            Text("or use")
-                .foregroundStyle(AppTheme.Text.tertiaryColor)
-
+        if account.isMisconfigured {
+            // Standalone / BYOK-only build: no Palmier account to sign into.
             Button(action: { SettingsWindowController.shared.show(tab: .agent) }) {
-                Text("your own Anthropic key")
+                Text("Add an API key or pick a CLI in Settings → Agent")
                     .underline()
                     .foregroundStyle(AppTheme.Accent.primary)
             }
             .buttonStyle(.plain)
+            .font(.system(size: AppTheme.FontSize.md, weight: .medium))
+        } else {
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Button(action: { SettingsWindowController.shared.show(tab: .account) }) {
+                    Text(missingKeyPrimaryAction(account: account))
+                        .underline()
+                        .foregroundStyle(AppTheme.Accent.primary)
+                }
+                .buttonStyle(.plain)
+
+                Text("or use")
+                    .foregroundStyle(AppTheme.Text.tertiaryColor)
+
+                Button(action: { SettingsWindowController.shared.show(tab: .agent) }) {
+                    Text("your own API key")
+                        .underline()
+                        .foregroundStyle(AppTheme.Accent.primary)
+                }
+                .buttonStyle(.plain)
+            }
+            .font(.system(size: AppTheme.FontSize.md, weight: .medium))
         }
-        .font(.system(size: AppTheme.FontSize.md, weight: .medium))
     }
 
     private func missingKeyPrimaryAction(account: AccountService) -> String {
