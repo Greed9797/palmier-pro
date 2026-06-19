@@ -40,7 +40,9 @@ struct SettingsView: View {
 
     private var visibleTabs: [SettingsTab] {
         SettingsTab.allCases.filter { tab in
-            !(tab == .account && account.isMisconfigured)
+            // Account + Models are Palmier-cloud concepts (sign-in, cloud generation);
+            // hide them entirely in standalone/BYOK mode so nothing asks for a Palmier account.
+            !((tab == .account || tab == .models) && account.isMisconfigured)
         }
     }
 
