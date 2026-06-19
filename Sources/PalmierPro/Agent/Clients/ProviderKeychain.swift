@@ -18,6 +18,7 @@ enum ProviderKeychain {
         case .openAI: envKey = "OPENAI_API_KEY"
         case .gemini: envKey = "GEMINI_API_KEY"
         case .minimax: envKey = "MINIMAX_API_KEY"
+        case .claudeCLI, .codexCLI: return nil
         }
         if let env = ProcessInfo.processInfo.environment[envKey]?
             .trimmingCharacters(in: .whitespacesAndNewlines), !env.isEmpty {

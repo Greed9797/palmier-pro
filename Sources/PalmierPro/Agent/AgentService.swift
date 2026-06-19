@@ -93,13 +93,14 @@ final class AgentService {
     var hasApiKey: Bool { activeApiKey != nil }
 
     var canStream: Bool {
+        if selectedProvider.usesCLI { return true }
         if activeApiKey != nil { return true }
         let account = AccountService.shared
         return account.isSignedIn && account.hasCredits
     }
 
     var availableModels: [LLMModel] {
-        if activeApiKey != nil { return selectedProvider.models }
+        if selectedProvider.usesCLI || activeApiKey != nil { return selectedProvider.models }
         let isPaid = AccountService.shared.isPaid
         return LLMProvider.anthropic.models.filter {
             isPaid ? $0.id == AnthropicModel.sonnet46.rawValue : $0.id == AnthropicModel.haiku45.rawValue
@@ -107,6 +108,9 @@ final class AgentService {
     }
 
     private func selectClient() -> (any AgentClient)? {
+        if selectedProvider.usesCLI {
+            return CLIClient(kind: selectedProvider == .claudeCLI ? .claude : .codex, model: effectiveModel)
+        }
         if let key = activeApiKey {
             switch selectedProvider {
             case .anthropic:
@@ -114,6 +118,8 @@ final class AgentService {
                 return AnthropicClient(apiKey: key, model: m)
             case .openAI, .gemini, .minimax:
                 return OpenAICompatClient(apiKey: key, model: effectiveModel)
+            case .claudeCLI, .codexCLI:
+                return nil
             }
         }
         if AccountService.shared.isSignedIn {

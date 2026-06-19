@@ -49,7 +49,7 @@ struct AgentPane: View {
         let isActive = activeProvider == provider
         return Button(action: { selectedTab = provider }) {
             HStack(spacing: AppTheme.Spacing.xs) {
-                if hasKeys[provider] == true {
+                if hasKeys[provider] == true || provider.usesCLI {
                     Circle()
                         .fill(isActive ? AppTheme.Accent.primary : Color.green.opacity(0.7))
                         .frame(width: 5, height: 5)
@@ -70,11 +70,43 @@ struct AgentPane: View {
 
     private func keySection(for provider: LLMProvider) -> some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.smMd) {
-            keyHeader(for: provider)
-            keyField(for: provider)
-            if hasKeys[provider] == true {
-                useProviderButton(provider)
+            if provider.usesCLI {
+                cliSection(provider)
+            } else {
+                keyHeader(for: provider)
+                keyField(for: provider)
+                if hasKeys[provider] == true {
+                    useProviderButton(provider)
+                }
             }
+        }
+    }
+
+    private func cliSection(_ provider: LLMProvider) -> some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.smMd) {
+            HStack(alignment: .firstTextBaseline, spacing: AppTheme.Spacing.sm) {
+                Text("Uses your installed \(provider.displayName) — no API key needed.")
+                    .font(.system(size: AppTheme.FontSize.md, weight: .medium))
+                    .foregroundStyle(AppTheme.Text.primaryColor)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer()
+                Button(action: { NSWorkspace.shared.open(provider.consoleURL, configuration: .init(), completionHandler: nil) }) {
+                    HStack(spacing: 2) {
+                        Text("Setup")
+                        Image(systemName: "arrow.up.right")
+                            .font(.system(size: AppTheme.FontSize.xs, weight: .semibold))
+                    }
+                    .font(.system(size: AppTheme.FontSize.sm))
+                    .foregroundStyle(AppTheme.Accent.primary)
+                }
+                .buttonStyle(.plain)
+                .fixedSize()
+            }
+            Text("The CLI edits your timeline through Palmier's MCP server. Sign in to the CLI first (`\(provider == .claudeCLI ? "claude" : "codex")`).")
+                .font(.system(size: AppTheme.FontSize.sm))
+                .foregroundStyle(AppTheme.Text.tertiaryColor)
+                .fixedSize(horizontal: false, vertical: true)
+            useProviderButton(provider)
         }
     }
 

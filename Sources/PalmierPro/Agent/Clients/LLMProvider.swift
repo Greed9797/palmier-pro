@@ -7,8 +7,13 @@ enum LLMProvider: String, CaseIterable, Codable, Identifiable, Hashable {
     case openAI = "openai"
     case gemini
     case minimax
+    case claudeCLI = "claude-cli"
+    case codexCLI = "codex-cli"
 
     var id: String { rawValue }
+
+    /// CLI providers run a locally-installed agent binary instead of an HTTP API.
+    var usesCLI: Bool { self == .claudeCLI || self == .codexCLI }
 
     var displayName: String {
         switch self {
@@ -16,6 +21,8 @@ enum LLMProvider: String, CaseIterable, Codable, Identifiable, Hashable {
         case .openAI: "OpenAI"
         case .gemini: "Gemini"
         case .minimax: "MiniMax"
+        case .claudeCLI: "Claude Code (CLI)"
+        case .codexCLI: "Codex (CLI)"
         }
     }
 
@@ -25,6 +32,7 @@ enum LLMProvider: String, CaseIterable, Codable, Identifiable, Hashable {
         case .openAI: "sk-..."
         case .gemini: "AIza..."
         case .minimax: "eyJh..."
+        case .claudeCLI, .codexCLI: ""
         }
     }
 
@@ -34,13 +42,15 @@ enum LLMProvider: String, CaseIterable, Codable, Identifiable, Hashable {
         case .openAI: URL(string: "https://platform.openai.com/api-keys")!
         case .gemini: URL(string: "https://aistudio.google.com/app/apikey")!
         case .minimax: URL(string: "https://platform.minimax.io/user-center/basic-information/interface-key")!
+        case .claudeCLI: URL(string: "https://docs.anthropic.com/en/docs/claude-code/overview")!
+        case .codexCLI: URL(string: "https://github.com/openai/codex")!
         }
     }
 
-    // nil = use AnthropicClient; non-nil = use OpenAICompatClient
+    // nil = use AnthropicClient (or a CLI when usesCLI); non-nil = use OpenAICompatClient
     var openAIEndpoint: URL? {
         switch self {
-        case .anthropic: nil
+        case .anthropic, .claudeCLI, .codexCLI: nil
         case .openAI: URL(string: "https://api.openai.com/v1/chat/completions")
         case .gemini: URL(string: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions")
         case .minimax: URL(string: "https://api.minimax.io/v1/chat/completions")
@@ -72,6 +82,10 @@ enum LLMProvider: String, CaseIterable, Codable, Identifiable, Hashable {
                 LLMModel(id: "MiniMax-M2.7", displayName: "MiniMax M2.7", provider: .minimax),
                 LLMModel(id: "MiniMax-M2.5", displayName: "MiniMax M2.5", provider: .minimax),
             ]
+        case .claudeCLI:
+            return [LLMModel(id: "default", displayName: "Claude Code default", provider: .claudeCLI)]
+        case .codexCLI:
+            return [LLMModel(id: "default", displayName: "Codex default", provider: .codexCLI)]
         }
     }
 }
