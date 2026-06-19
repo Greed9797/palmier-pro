@@ -37,9 +37,10 @@ struct ModelsPane: View {
             searchBar
 
             if sections.isEmpty {
-                Text(catalog.isLoaded ? "No models match \"\(query)\"." : "Loading models…")
+                Text(emptyMessage)
                     .font(.system(size: AppTheme.FontSize.sm))
                     .foregroundStyle(AppTheme.Text.tertiaryColor)
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, AppTheme.Spacing.lg)
             } else {
                 ForEach(sections) { section in
@@ -47,6 +48,17 @@ struct ModelsPane: View {
                 }
             }
         }
+        .onAppear { catalog.configure() }
+    }
+
+    private var emptyMessage: String {
+        if !catalog.isLoaded { return "Loading models…" }
+        let noneLoaded = catalog.image.isEmpty && catalog.video.isEmpty && catalog.audio.isEmpty
+        if noneLoaded {
+            let base = catalog.lastError ?? "No generation models available."
+            return "\(base) Sign in to Palmier to enable video/image/audio generation. Your own chat models (BYOK) are configured in the Agent tab."
+        }
+        return "No models match \"\(query)\"."
     }
 
     private var searchBar: some View {

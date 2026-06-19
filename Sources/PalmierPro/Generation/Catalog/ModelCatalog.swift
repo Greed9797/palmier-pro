@@ -48,7 +48,13 @@ final class ModelCatalog {
         guard !didConfigure else { return }
         didConfigure = true
 
-        guard let client = AccountService.shared.convex else { return }
+        guard let client = AccountService.shared.convex else {
+            // No Palmier backend (standalone / BYOK-only): nothing to subscribe to, but
+            // don't leave the UI stuck on "Loading models…" forever.
+            self.isLoaded = true
+            self.lastError = "Generation models require a Palmier account."
+            return
+        }
 
         subscription = client
             .subscribe(to: "models:list", yielding: [CatalogEntry].self)
