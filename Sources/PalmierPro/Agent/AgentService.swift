@@ -417,6 +417,12 @@ final class AgentService {
     }
 
     private func runLoop() async {
+        // BYOK HTTP providers (OpenAI/Gemini/MiniMax) with no key: say exactly that,
+        // instead of silently falling through to a vague "No backend available."
+        if selectedProvider.openAIEndpoint != nil, !hasApiKey {
+            streamError = .upstream("No \(selectedProvider.displayName) API key. Add it in Settings → Agent, or pick another provider.")
+            return
+        }
         guard let client = selectClient() else {
             streamError = .upstream("No backend available.")
             return

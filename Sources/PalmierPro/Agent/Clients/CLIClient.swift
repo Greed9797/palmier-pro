@@ -54,6 +54,8 @@ struct CLIClient: AgentClient {
 
         process.executableURL = URL(fileURLWithPath: "/bin/zsh")
         process.arguments = ["-lc", command(codexOutFile: codexOut?.path)]
+        // Neutral cwd: no stray AGENTS.md / CLAUDE.md / project settings get pulled in.
+        process.currentDirectoryURL = URL(fileURLWithPath: NSTemporaryDirectory())
 
         let stdinPipe = Pipe(), outPipe = Pipe(), errPipe = Pipe()
         process.standardInput = stdinPipe
@@ -70,6 +72,10 @@ struct CLIClient: AgentClient {
         let stdinHandle = stdinPipe.fileHandleForWriting
         stdinHandle.write(Data(prompt.utf8))
         try? stdinHandle.close()
+
+        // Instant feedback: the CLI reasons silently for a few seconds before its
+        // first event, so show life immediately instead of a dead spinner.
+        continuation.yield(.textDelta("→ \(kind.binary) working…\n"))
 
         // Drain stderr concurrently so a flood can't fill the pipe and block the process.
         let errTask = Task.detached { String(decoding: errHandle.readDataToEndOfFile(), as: UTF8.self) }
@@ -198,15 +204,19 @@ struct CLIClient: AgentClient {
         case .claude:
             // stream-json --verbose: live message events. strict-mcp-config: only palmier-pro.
             // skip-permissions: -p has no TTY to approve tool calls → would hang.
+            // setting-sources project,local: skip the user's global hooks/skills (which flood the
+            // stream and add seconds of startup) WITHOUT dropping auth — unlike --bare, which logs out.
             let mcp = "--strict-mcp-config --mcp-config '{\"mcpServers\":{\"palmier-pro\":{\"type\":\"http\",\"url\":\"\(Self.palmierMCP)\"}}}'"
-            return "claude -p --output-format stream-json --verbose --dangerously-skip-permissions \(mcp)\(modelArg)"
+            return "claude -p --output-format stream-json --verbose --dangerously-skip-permissions --setting-sources project,local \(mcp)\(modelArg)"
         case .codex:
+            // ignore-user-config: skip the user's ~/.codex config (heavy plugins/skills, slow startup);
+            // auth still uses CODEX_HOME and our -c overrides below still apply.
             // -c mcp_servers={...}: override the codex config table to just palmier-pro.
             let mcp = "-c 'mcp_servers={palmier-pro={url=\"\(Self.palmierMCP)\"}}'"
             let effort = Self.isSafeToken(codexEffort) ? " -c model_reasoning_effort=\(codexEffort)" : ""
             let fast = codexFastMode ? " -c service_tier=\"fast\"" : ""
             let out = codexOutFile.map { " -o '\($0)'" } ?? ""
-            return "codex exec --json --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox \(mcp)\(effort)\(fast)\(out)\(modelArg)"
+            return "codex exec --json --ignore-user-config --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox \(mcp)\(effort)\(fast)\(out)\(modelArg)"
         }
     }
 
