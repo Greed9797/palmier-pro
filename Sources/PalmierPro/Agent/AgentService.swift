@@ -17,6 +17,7 @@ final class AgentService {
         ) { [weak self] _ in
             MainActor.assumeIsolated {
                 self?.reloadAPIKeys()
+                self?.syncSelectionFromDefaults()
             }
         }
     }
@@ -30,6 +31,24 @@ final class AgentService {
                 }.value
             }
             self?.apiKeys = keys
+        }
+    }
+
+    private func syncSelectionFromDefaults() {
+        let persisted = AgentService.persistedProvider
+        if persisted != selectedProvider { selectedProvider = persisted }
+    }
+
+    // Settings has no live AgentService; it reads/writes the active provider here.
+    nonisolated static var persistedProvider: LLMProvider {
+        get {
+            if let raw = UserDefaults.standard.string(forKey: "agentProvider"),
+               let p = LLMProvider(rawValue: raw) { return p }
+            return .anthropic
+        }
+        set {
+            UserDefaults.standard.set(newValue.rawValue, forKey: "agentProvider")
+            NotificationCenter.default.post(name: .providerAPIKeyChanged, object: nil)
         }
     }
 

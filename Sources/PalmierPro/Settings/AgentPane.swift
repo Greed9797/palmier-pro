@@ -3,8 +3,8 @@ import SwiftUI
 
 struct AgentPane: View {
     @Bindable private var appState = AppState.shared
-    @State private var agentService = AgentService.shared
-    @State private var selectedTab: LLMProvider = AgentService.shared.selectedProvider
+    @State private var selectedTab: LLMProvider = AgentService.persistedProvider
+    @State private var activeProvider: LLMProvider = AgentService.persistedProvider
     @State private var draftKeys: [LLMProvider: String] = [:]
     @State private var maskedKeys: [LLMProvider: String] = [:]
     @State private var hasKeys: [LLMProvider: Bool] = [:]
@@ -46,7 +46,7 @@ struct AgentPane: View {
 
     private func providerTab(_ provider: LLMProvider) -> some View {
         let isSelected = selectedTab == provider
-        let isActive = agentService.selectedProvider == provider
+        let isActive = activeProvider == provider
         return Button(action: { selectedTab = provider }) {
             HStack(spacing: AppTheme.Spacing.xs) {
                 if hasKeys[provider] == true {
@@ -155,7 +155,7 @@ struct AgentPane: View {
     }
 
     private func useProviderButton(_ provider: LLMProvider) -> some View {
-        let isActive = agentService.selectedProvider == provider
+        let isActive = activeProvider == provider
         return HStack {
             if isActive {
                 Label("Active for agent chat", systemImage: "checkmark.circle.fill")
@@ -163,7 +163,7 @@ struct AgentPane: View {
                     .foregroundStyle(AppTheme.Accent.primary)
             } else {
                 Button("Use \(provider.displayName) for agent chat") {
-                    agentService.selectedProvider = provider
+                    setActive(provider)
                 }
                 .buttonStyle(.capsule(.secondary, size: .regular))
                 .font(.system(size: AppTheme.FontSize.sm))
@@ -174,6 +174,7 @@ struct AgentPane: View {
     // MARK: - Actions
 
     private func refreshAll() {
+        activeProvider = AgentService.persistedProvider
         for provider in LLMProvider.allCases {
             refresh(provider: provider)
         }
@@ -193,9 +194,7 @@ struct AgentPane: View {
         focusedProvider = nil
         refresh(provider: provider)
         // Auto-activate newly configured provider
-        if agentService.selectedProvider != provider {
-            agentService.selectedProvider = provider
-        }
+        setActive(provider)
     }
 
     private func remove(provider: LLMProvider) {
@@ -203,9 +202,14 @@ struct AgentPane: View {
         draftKeys[provider] = ""
         refresh(provider: provider)
         // Switch back to Anthropic if active provider was removed
-        if agentService.selectedProvider == provider {
-            agentService.selectedProvider = .anthropic
+        if activeProvider == provider {
+            setActive(.anthropic)
         }
+    }
+
+    private func setActive(_ provider: LLMProvider) {
+        activeProvider = provider
+        AgentService.persistedProvider = provider
     }
 
     private func mask(_ key: String) -> String {
