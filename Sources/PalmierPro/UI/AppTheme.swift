@@ -6,7 +6,7 @@ enum AppTheme {
     // MARK: - Backgrounds
 
     enum Background {
-        static let base = NSColor(red: 10/255, green: 10/255, blue: 10/255, alpha: 1)
+        static let base = NSColor(red: 13/255, green: 13/255, blue: 13/255, alpha: 1)
         static let surface = NSColor(red: 22/255, green: 22/255, blue: 22/255, alpha: 1)
         static let raised = NSColor(red: 30/255, green: 30/255, blue: 30/255, alpha: 1)
         static let prominent = NSColor(red: 44/255, green: 44/255, blue: 44/255, alpha: 1)
@@ -48,16 +48,16 @@ enum AppTheme {
         static let timecodeNSColor = NSColor(red: 0.95, green: 0.6, blue: 0.2, alpha: 1)
         static let timecodeColor = Color(timecodeNSColor)
 
-        /// Warm off-white
-        static let primary = Color(red: 0.961, green: 0.937, blue: 0.894)
+        /// W3 brand orange #F55900
+        static let primary = Color(red: 245/255, green: 89/255, blue: 0/255)
 
-        /// Vibrant highlight used by the onboarding tour spotlight.
-        static let spotlight = Color(red: 1.0, green: 0.27, blue: 0.27)
+        /// W3 brand orange, used by the onboarding tour spotlight.
+        static let spotlight = Color(red: 245/255, green: 89/255, blue: 0/255)
         static let spotlightGradient = LinearGradient(
             colors: [
-                Color(red: 1.0, green: 0.34, blue: 0.30),
-                Color(red: 0.95, green: 0.15, blue: 0.28),
-                Color(red: 1.0, green: 0.48, blue: 0.22),
+                Color(red: 1.0, green: 0.55, blue: 0.20),
+                Color(red: 245/255, green: 89/255, blue: 0/255),
+                Color(red: 0.78, green: 0.27, blue: 0.0),
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing

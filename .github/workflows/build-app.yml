@@ -1,0 +1,44 @@
+name: build-app
+
+# Builds the W3-branded, multi-provider BYOK PalmierPro.app on a macOS runner
+# (which ships full Xcode — needed for lottie-ios's SwiftUIMacros @Entry macro,
+# absent from Command Line Tools). Produces a downloadable ad-hoc-signed artifact.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/byok-multi-provider]
+    paths:
+      - "Sources/**"
+      - "Package.swift"
+      - "scripts/**"
+      - ".github/workflows/build-app.yml"
+
+jobs:
+  build:
+    runs-on: macos-26 # requires macOS 26 SDK + Swift 6.2 (Package: .macOS(.v26))
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          xcode-select -p
+          swift --version
+          xcodebuild -version || true
+
+      - name: Compile (validates W3 theme + BYOK multi-provider sources)
+        run: swift build -c debug
+
+      - name: Bundle .app (ad-hoc signed)
+        run: bash scripts/bundle.sh debug
+
+      - name: Zip .app
+        run: ditto -c -k --keepParent .build/PalmierPro.app .build/PalmierPro-byok-w3.zip
+
+      - name: Upload app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PalmierPro-byok-w3
+          path: .build/PalmierPro-byok-w3.zip
+          if-no-files-found: error
