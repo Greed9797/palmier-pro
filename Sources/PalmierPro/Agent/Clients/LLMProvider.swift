@@ -83,9 +83,17 @@ enum LLMProvider: String, CaseIterable, Codable, Identifiable, Hashable {
                 LLMModel(id: "MiniMax-M2.5", displayName: "MiniMax M2.5", provider: .minimax),
             ]
         case .claudeCLI:
-            return [LLMModel(id: "default", displayName: "Claude Code default", provider: .claudeCLI)]
+            return [
+                LLMModel(id: "sonnet", displayName: "Claude Sonnet", provider: .claudeCLI),
+                LLMModel(id: "opus", displayName: "Claude Opus", provider: .claudeCLI),
+                LLMModel(id: "haiku", displayName: "Claude Haiku", provider: .claudeCLI),
+            ]
         case .codexCLI:
-            return [LLMModel(id: "default", displayName: "Codex default", provider: .codexCLI)]
+            return [
+                LLMModel(id: "gpt-5.5", displayName: "GPT-5.5", provider: .codexCLI),
+                LLMModel(id: "gpt-5.5-codex", displayName: "GPT-5.5 Codex", provider: .codexCLI),
+                LLMModel(id: "gpt-5.4-codex", displayName: "GPT-5.4 Codex", provider: .codexCLI),
+            ]
         }
     }
 }

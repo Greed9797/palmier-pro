@@ -85,6 +85,15 @@ final class AgentService {
         didSet { UserDefaults.standard.set(selectedModel.id, forKey: "agentModelId") }
     }
 
+    // Codex CLI tuning (chat-bar controls). Effort: low/medium/high/xhigh. Fast: service_tier=fast.
+    var codexEffort: String = UserDefaults.standard.string(forKey: "codexEffort") ?? "medium" {
+        didSet { UserDefaults.standard.set(codexEffort, forKey: "codexEffort") }
+    }
+
+    var codexFastMode: Bool = (UserDefaults.standard.object(forKey: "codexFastMode") as? Bool) ?? true {
+        didSet { UserDefaults.standard.set(codexFastMode, forKey: "codexFastMode") }
+    }
+
     private var activeApiKey: String? {
         let key = apiKeys[selectedProvider] ?? ""
         return key.isEmpty ? nil : key
@@ -109,7 +118,9 @@ final class AgentService {
 
     private func selectClient() -> (any AgentClient)? {
         if selectedProvider.usesCLI {
-            return CLIClient(kind: selectedProvider == .claudeCLI ? .claude : .codex, model: effectiveModel)
+            return CLIClient(
+                kind: selectedProvider == .claudeCLI ? .claude : .codex,
+                model: effectiveModel, codexEffort: codexEffort, codexFastMode: codexFastMode)
         }
         if let key = activeApiKey {
             switch selectedProvider {

@@ -137,30 +137,78 @@ struct AgentPanelView: View {
 
     @ViewBuilder
     private var modelPicker: some View {
-        if service.hasApiKey {
-            Menu {
-                ForEach(service.availableModels, id: \.id) { m in
-                    Button(m.displayName) { service.model = m }
+        // CLI providers carry no API key but still need model selection.
+        if service.hasApiKey || service.selectedProvider.usesCLI {
+            HStack(spacing: AppTheme.Spacing.sm) {
+                Menu {
+                    ForEach(service.availableModels, id: \.id) { m in
+                        Button(m.displayName) { service.model = m }
+                    }
+                } label: {
+                    HStack(spacing: AppTheme.Spacing.xs) {
+                        Text(service.effectiveModel.displayName)
+                            .font(.system(size: AppTheme.FontSize.xs, weight: .medium))
+                            .foregroundStyle(AppTheme.Text.secondaryColor)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: AppTheme.FontSize.micro, weight: .semibold))
+                            .foregroundStyle(AppTheme.Text.tertiaryColor)
+                    }
                 }
-            } label: {
-                HStack(spacing: AppTheme.Spacing.xs) {
-                    Text(service.effectiveModel.displayName)
-                        .font(.system(size: AppTheme.FontSize.xs, weight: .medium))
-                        .foregroundStyle(AppTheme.Text.secondaryColor)
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: AppTheme.FontSize.micro, weight: .semibold))
-                        .foregroundStyle(AppTheme.Text.tertiaryColor)
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+
+                if service.selectedProvider == .codexCLI {
+                    codexEffortMenu
+                    codexFastToggle
                 }
             }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
-            .fixedSize()
         }
+    }
+
+    private var codexEffortMenu: some View {
+        Menu {
+            ForEach(["low", "medium", "high", "xhigh"], id: \.self) { effort in
+                Button(effort.capitalized) { service.codexEffort = effort }
+            }
+        } label: {
+            HStack(spacing: 2) {
+                Text(service.codexEffort.capitalized)
+                    .font(.system(size: AppTheme.FontSize.xs, weight: .medium))
+                    .foregroundStyle(AppTheme.Text.secondaryColor)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: AppTheme.FontSize.micro, weight: .semibold))
+                    .foregroundStyle(AppTheme.Text.tertiaryColor)
+            }
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Codex reasoning effort")
+    }
+
+    private var codexFastToggle: some View {
+        Button { service.codexFastMode.toggle() } label: {
+            HStack(spacing: 2) {
+                Image(systemName: service.codexFastMode ? "bolt.fill" : "bolt")
+                    .font(.system(size: AppTheme.FontSize.micro))
+                Text("Fast")
+                    .font(.system(size: AppTheme.FontSize.xs, weight: .medium))
+            }
+            .foregroundStyle(service.codexFastMode ? AppTheme.Accent.primary : AppTheme.Text.tertiaryColor)
+        }
+        .buttonStyle(.plain)
+        .help("Codex fast mode (service_tier=fast)")
     }
 
     @ViewBuilder
     private var byokIndicator: some View {
-        if service.hasApiKey {
+        if service.selectedProvider.usesCLI {
+            Text("\(service.selectedProvider.displayName) · no key")
+                .font(.system(size: AppTheme.FontSize.xs).italic())
+                .foregroundStyle(AppTheme.Text.tertiaryColor)
+                .help("Running your local \(service.selectedProvider.displayName) — uses its login, no API key")
+        } else if service.hasApiKey {
             Text("\(service.selectedProvider.displayName) · API key")
                 .font(.system(size: AppTheme.FontSize.xs).italic())
                 .foregroundStyle(AppTheme.Text.tertiaryColor)
