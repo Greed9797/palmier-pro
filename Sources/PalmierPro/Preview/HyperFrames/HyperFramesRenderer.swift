@@ -64,6 +64,13 @@ final class HyperFramesRenderer: NSObject, WKNavigationDelegate {
                           width: CGFloat(w), height: CGFloat(h))
         let win = NSWindow(contentRect: rect, styleMask: [.borderless], backing: .buffered, defer: false)
         win.isReleasedWhenClosed = false
+        // Float the (2px-visible) window above other apps' windows so its sliver is never occluded
+        // — even while Palmier is in the background. WebKit pauses requestAnimationFrame for an
+        // occluded/hidden page, and the private override (_setWindowOcclusionDetectionEnabled:) no
+        // longer exists on macOS 26, so genuine on-screen visibility is the only reliable way.
+        win.level = .floating
+        win.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
+        win.ignoresMouseEvents = true
         let view = WKWebView(frame: NSRect(x: 0, y: 0, width: CGFloat(w), height: CGFloat(h)),
                              configuration: WKWebViewConfiguration())
         view.navigationDelegate = self
