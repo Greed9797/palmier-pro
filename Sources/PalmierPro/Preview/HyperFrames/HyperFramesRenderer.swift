@@ -101,12 +101,16 @@ final class HyperFramesRenderer: NSObject, WKNavigationDelegate {
         guard let pool = adaptor?.pixelBufferPool else { throw HFError.encodeSetupFailed }
 
         // 6. Per-frame: seek → snapshot → append (strictly one frame in flight).
+        // afterScreenUpdates=false is critical: the seek already waits on requestAnimationFrame
+        // (paint is committed), so the default `true` only adds a second full screen-update sync —
+        // pathologically slow (seconds/frame) on an offscreen, occlusion-throttled window.
+        let config = WKSnapshotConfiguration()
+        config.rect = CGRect(x: 0, y: 0, width: CGFloat(w), height: CGFloat(h))
+        config.afterScreenUpdates = false
         for i in 0..<totalFrames {
             try Task.checkCancellation()
             await seekFrame(t: Double(i) / fps, fps: fps, frame: i)
 
-            let config = WKSnapshotConfiguration()
-            config.rect = CGRect(x: 0, y: 0, width: CGFloat(w), height: CGFloat(h))
             let image = try await view.takeSnapshot(configuration: config)
             guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
                 Log.app.error("HyperFrames: snapshot \(i) produced no CGImage (reps: \(image.representations.count))")

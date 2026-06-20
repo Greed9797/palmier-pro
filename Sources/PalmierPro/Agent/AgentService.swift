@@ -127,7 +127,7 @@ final class AgentService {
             case .anthropic:
                 let m = AnthropicModel(rawValue: effectiveModel.id) ?? .sonnet46
                 return AnthropicClient(apiKey: key, model: m)
-            case .openAI, .gemini, .minimax:
+            case .openAI, .gemini, .minimax, .nvidia:
                 return OpenAICompatClient(apiKey: key, model: effectiveModel)
             case .claudeCLI, .codexCLI:
                 return nil

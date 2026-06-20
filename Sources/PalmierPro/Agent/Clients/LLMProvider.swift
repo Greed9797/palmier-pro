@@ -7,6 +7,7 @@ enum LLMProvider: String, CaseIterable, Codable, Identifiable, Hashable {
     case openAI = "openai"
     case gemini
     case minimax
+    case nvidia
     case claudeCLI = "claude-cli"
     case codexCLI = "codex-cli"
 
@@ -21,6 +22,7 @@ enum LLMProvider: String, CaseIterable, Codable, Identifiable, Hashable {
         case .openAI: "OpenAI"
         case .gemini: "Gemini"
         case .minimax: "MiniMax"
+        case .nvidia: "NVIDIA NIM"
         case .claudeCLI: "Claude Code (CLI)"
         case .codexCLI: "Codex (CLI)"
         }
@@ -32,6 +34,7 @@ enum LLMProvider: String, CaseIterable, Codable, Identifiable, Hashable {
         case .openAI: "sk-..."
         case .gemini: "AIza..."
         case .minimax: "eyJh..."
+        case .nvidia: "nvapi-..."
         case .claudeCLI, .codexCLI: ""
         }
     }
@@ -42,6 +45,7 @@ enum LLMProvider: String, CaseIterable, Codable, Identifiable, Hashable {
         case .openAI: URL(string: "https://platform.openai.com/api-keys")!
         case .gemini: URL(string: "https://aistudio.google.com/app/apikey")!
         case .minimax: URL(string: "https://platform.minimax.io/user-center/basic-information/interface-key")!
+        case .nvidia: URL(string: "https://build.nvidia.com/settings/api-keys")!
         case .claudeCLI: URL(string: "https://docs.anthropic.com/en/docs/claude-code/overview")!
         case .codexCLI: URL(string: "https://github.com/openai/codex")!
         }
@@ -54,6 +58,7 @@ enum LLMProvider: String, CaseIterable, Codable, Identifiable, Hashable {
         case .openAI: URL(string: "https://api.openai.com/v1/chat/completions")
         case .gemini: URL(string: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions")
         case .minimax: URL(string: "https://api.minimax.io/v1/chat/completions")
+        case .nvidia: URL(string: "https://integrate.api.nvidia.com/v1/chat/completions")
         }
     }
 
@@ -81,6 +86,15 @@ enum LLMProvider: String, CaseIterable, Codable, Identifiable, Hashable {
                 LLMModel(id: "MiniMax-M3", displayName: "MiniMax M3 (multimodal)", provider: .minimax),
                 LLMModel(id: "MiniMax-M2.7", displayName: "MiniMax M2.7", provider: .minimax),
                 LLMModel(id: "MiniMax-M2.5", displayName: "MiniMax M2.5", provider: .minimax),
+            ]
+        case .nvidia:
+            // NVIDIA NIM OpenAI-compatible endpoint — hosts MiniMax + others. Works with an
+            // nvapi- key (build.nvidia.com), unlike api.minimax.io which needs a MiniMax JWT.
+            return [
+                LLMModel(id: "minimaxai/minimax-m3", displayName: "MiniMax M3", provider: .nvidia),
+                LLMModel(id: "minimaxai/minimax-m2.7", displayName: "MiniMax M2.7", provider: .nvidia),
+                LLMModel(id: "deepseek-ai/deepseek-r1", displayName: "DeepSeek R1", provider: .nvidia),
+                LLMModel(id: "meta/llama-3.3-70b-instruct", displayName: "Llama 3.3 70B", provider: .nvidia),
             ]
         case .claudeCLI:
             return [
