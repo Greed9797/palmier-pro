@@ -54,9 +54,14 @@ final class HyperFramesRenderer: NSObject, WKNavigationDelegate {
         let h = max(2, req.height - req.height % 2)
         let fps = req.fps > 0 ? req.fps : 30
 
-        // 1. Offscreen window + web view (must be on-screen-but-offscreen, not hidden,
-        //    or the web content process never allocates a backing surface).
-        let rect = NSRect(x: -20_000, y: -20_000, width: CGFloat(w), height: CGFloat(h))
+        // 1. Window + web view. Park it so only a ~2px corner sits on the main screen: a fully
+        //    offscreen window is treated as hidden → WebKit pauses requestAnimationFrame (the
+        //    per-frame seek awaits rAF) → every frame stalls on its 10s timeout (~15 min total).
+        //    A sliver on-screen keeps the window "visible" so rAF fires; the snapshot still
+        //    captures the full view regardless of where the window sits.
+        let screen = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1, height: 1)
+        let rect = NSRect(x: screen.minX - CGFloat(w) + 2, y: screen.minY - CGFloat(h) + 2,
+                          width: CGFloat(w), height: CGFloat(h))
         let win = NSWindow(contentRect: rect, styleMask: [.borderless], backing: .buffered, defer: false)
         win.isReleasedWhenClosed = false
         let view = WKWebView(frame: NSRect(x: 0, y: 0, width: CGFloat(w), height: CGFloat(h)),
@@ -67,6 +72,12 @@ final class HyperFramesRenderer: NSObject, WKNavigationDelegate {
         win.orderFrontRegardless()
         self.window = win
         self.webView = view
+
+        // An offscreen window makes WebKit treat the page as hidden, which PAUSES
+        // requestAnimationFrame — the per-frame seek awaits rAF, so each frame then stalls on
+        // its 10s timeout (~15 min for a title). Disable occlusion detection so the page stays
+        // "visible" and rAF keeps firing. Restored in teardown().
+        Self.setOcclusionDetection(false)
 
         // 2. Load HTML (baseURL nil → no network/file access; assets must be inlined).
         //    Bounded by a timeout so a web-content-process crash / silent cancel can't hang forever.
@@ -259,7 +270,19 @@ final class HyperFramesRenderer: NSObject, WKNavigationDelegate {
         }
     }
 
+    /// Toggle app-wide window occlusion detection (private NSApplication API, responds-guarded
+    /// so it's a no-op if unavailable). Off = WebKit keeps offscreen pages rendering + rAF firing.
+    private static func setOcclusionDetection(_ enabled: Bool) {
+        let sel = NSSelectorFromString("_setWindowOcclusionDetectionEnabled:")
+        let app = NSApplication.shared
+        guard app.responds(to: sel) else { return }
+        typealias Fn = @convention(c) (AnyObject, Selector, ObjCBool) -> Void
+        let imp = app.method(for: sel)
+        unsafeBitCast(imp, to: Fn.self)(app, sel, ObjCBool(enabled))
+    }
+
     private func teardown() {
+        Self.setOcclusionDetection(true)
         loadContinuation?.resume(throwing: HFError.loadFailed("renderer torn down"))
         loadContinuation = nil
         webView?.navigationDelegate = nil
