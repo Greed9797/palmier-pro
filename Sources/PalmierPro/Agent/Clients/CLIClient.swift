@@ -53,7 +53,10 @@ struct CLIClient: AgentClient {
             : nil
 
         process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        process.arguments = ["-lc", command(codexOutFile: codexOut?.path)]
+        // GUI apps launch with a minimal PATH (no ~/.local/bin), and a non-interactive login
+        // shell doesn't source ~/.zshrc — so `claude` (in ~/.local/bin) isn't found while
+        // `codex` (Homebrew, added by ~/.zprofile) is. Prepend the common CLI bin dirs.
+        process.arguments = ["-lc", Self.pathPrefix + command(codexOutFile: codexOut?.path)]
         // Neutral cwd: no stray AGENTS.md / CLAUDE.md / project settings get pulled in.
         process.currentDirectoryURL = URL(fileURLWithPath: NSTemporaryDirectory())
 
@@ -197,6 +200,9 @@ struct CLIClient: AgentClient {
     // configured server (the user may have 20+, some needing auth) makes `-p`/`exec` hang
     // for minutes at startup. strict/override pins it to just the editor's server.
     private static let palmierMCP = "http://127.0.0.1:19789/mcp"
+
+    // Ensure the CLIs resolve under a GUI app's minimal PATH (see run()).
+    private static let pathPrefix = "export PATH=\"$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"; "
 
     private func command(codexOutFile: String?) -> String {
         let modelArg = Self.isDefaultModel(model.id) ? "" : Self.sanitizedModelFlag(kind: kind, id: model.id)

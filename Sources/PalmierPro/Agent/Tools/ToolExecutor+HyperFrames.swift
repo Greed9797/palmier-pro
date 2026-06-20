@@ -23,8 +23,19 @@ extension ToolExecutor {
         guard input.durationSeconds > 0, input.durationSeconds <= 600 else {
             throw ToolError("durationSeconds must be > 0 and <= 600.")
         }
-        let width = max(16, min(3840, input.width ?? 1920))
-        let height = max(16, min(2160, input.height ?? 1080))
+        var width = max(16, min(3840, input.width ?? 1920))
+        var height = max(16, min(2160, input.height ?? 1080))
+        // Cap render work to a ~1080p pixel budget, preserving aspect. A full-res render of
+        // hundreds of frames via WebView snapshot is slow enough to blow the agent CLI's timeout
+        // (a 4K 7s title = 210 frames → minutes → killed before add_clips → nothing lands).
+        // Overlays/titles are vector; the editor composites this onto the real timeline size.
+        let pixelBudget = 1920.0 * 1080.0
+        let px = Double(width) * Double(height)
+        if px > pixelBudget {
+            let s = (pixelBudget / px).squareRoot()
+            width = max(16, Int((Double(width) * s).rounded()) & ~1)
+            height = max(16, Int((Double(height) * s).rounded()) & ~1)
+        }
         let fps = min(60, max(1, input.fps ?? 30))
 
         // Write into the project's media dir (persistent) so the asset URL stays valid;
