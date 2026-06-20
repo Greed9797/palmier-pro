@@ -49,6 +49,12 @@ final class HyperFramesRenderer: NSObject, WKNavigationDelegate {
     /// Returns the number of frames actually encoded.
     func render(_ req: HFRenderRequest, progress: (@MainActor (Int, Int) -> Void)? = nil) async throws -> Int {
         defer { teardown() }
+        // Disable App Nap for the render: when Palmier is backgrounded the OS throttles its timers
+        // and rendering, which (with WebKit's hidden-page rAF throttling) turned a 7s title into
+        // ~15 min. beginActivity keeps the process at full speed regardless of foreground state.
+        let activity = ProcessInfo.processInfo.beginActivity(
+            options: [.userInitiated, .latencyCritical], reason: "HyperFrames render")
+        defer { ProcessInfo.processInfo.endActivity(activity) }
 
         let w = max(2, req.width - req.width % 2)
         let h = max(2, req.height - req.height % 2)
