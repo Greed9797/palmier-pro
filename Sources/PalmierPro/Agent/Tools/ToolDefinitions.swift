@@ -14,6 +14,7 @@ enum ToolName: String, CaseIterable, Sendable {
     case rippleDeleteRanges = "ripple_delete_ranges"
     case addTexts = "add_texts"
     case addCaptions = "add_captions"
+    case addWordCaptions = "add_word_captions"
     case generateVideo = "generate_video"
     case generateImage = "generate_image"
     case generateAudio = "generate_audio"
@@ -315,6 +316,25 @@ enum ToolDefinitions {
                     "centerY": ["type": "number", "description": "Optional vertical center 0–1 (default 0.9, near the bottom)."],
                     "textCase": ["type": "string", "enum": ["auto", "upper", "lower"], "description": "Optional letter case (default auto)."],
                     "censorProfanity": ["type": "boolean", "description": "Optional. Mask profanity (default false)."],
+                ]
+            )
+        ),
+        AgentTool(
+            name: .addWordCaptions,
+            description: "CapCut-style animated captions: transcribes spoken audio and places short word-group caption clips that pop/fade in synced to speech (the editor's Custom Captions tab). Use this when the user wants captions that 'appear', 'pop in', 'word by word', or 'animated/CapCut style'. Same source pipeline as add_captions; differs only in short word grouping + an entrance animation. Omit clipIds to auto-pick the spoken track.",
+            inputSchema: objectSchema(
+                properties: [
+                    "clipIds": ["type": "array", "items": ["type": "string"], "description": "Optional. Audio/video clips to caption. Omit to auto-detect the primary spoken track."],
+                    "wordsPerCaption": ["type": "integer", "description": "Words shown per caption clip, 1–6 (default 2). 1 = strict word-by-word."],
+                    "animation": ["type": "string", "enum": ["popIn", "bounce", "fade", "typewriter"], "description": "Entrance animation per caption (default popIn). typewriter forces 1 word/caption."],
+                    "entryFrames": ["type": "integer", "description": "Length of the entrance in frames (default 4)."],
+                    "language": ["type": "string", "description": "Optional BCP-47 language of the speech (e.g. 'pt-BR', 'es', 'en'). Defaults to the system language — set this when the footage is in another language."],
+                    "fontName": ["type": "string", "description": "Optional font PostScript or family name (default 'Helvetica-Bold')."],
+                    "fontSize": ["type": "number", "description": "Optional font size in canvas points (default 48)."],
+                    "color": ["type": "string", "description": "Optional hex '#RRGGBB' or '#RRGGBBAA' (default white)."],
+                    "centerX": ["type": "number", "description": "Optional horizontal center 0–1 (default 0.5)."],
+                    "centerY": ["type": "number", "description": "Optional vertical center 0–1 (default 0.9, near the bottom)."],
+                    "textCase": ["type": "string", "enum": ["auto", "upper", "lower"], "description": "Optional letter case (default auto)."],
                 ]
             )
         ),

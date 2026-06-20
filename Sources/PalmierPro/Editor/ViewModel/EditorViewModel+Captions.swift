@@ -10,6 +10,10 @@ extension EditorViewModel {
         var textCase: CaptionCase = .auto
         var censorProfanity: Bool = false
         var locale: Locale? = nil
+        /// CapCut-style animated captions: > 0 groups the transcript into N-word chunks
+        /// (word-by-word) instead of full phrases; `animation` adds an entrance to each clip.
+        var wordsPerCaption: Int = 0
+        var animation: CaptionAnimation? = nil
     }
 
     enum CaptionCase: String, CaseIterable, Sendable {
@@ -176,9 +180,11 @@ extension EditorViewModel {
         for (ref, result) in results {
             let clips = targets.filter { $0.clip.mediaRef == ref }
             guard !clips.isEmpty else { continue }
-            let phrases = result.segments.flatMap {
-                CaptionBuilder.phrases(for: $0, fits: { captionLineFits($0, style: request.style) }, minDuration: AppTheme.Caption.minDisplayDuration)
-            }
+            let phrases = request.wordsPerCaption > 0
+                ? CaptionBuilder.wordPhrases(for: result.words, groupSize: request.wordsPerCaption, fits: { captionLineFits($0, style: request.style) })
+                : result.segments.flatMap {
+                    CaptionBuilder.phrases(for: $0, fits: { captionLineFits($0, style: request.style) }, minDuration: AppTheme.Caption.minDisplayDuration)
+                }
             for p in phrases {
                 guard let owner = bestClip(for: p, among: clips) else { continue }
                 phrasesByClip[owner.id, default: []].append(p)
@@ -188,7 +194,15 @@ extension EditorViewModel {
         return targets.flatMap { t -> [TextClipSpec] in
             guard let phrases = phrasesByClip[t.id] else { return [] }
             let cased = phrases.map { CaptionBuilder.Phrase(text: request.textCase.apply($0.text), start: $0.start, end: $0.end) }
-            return CaptionBuilder.specs(for: cased, sourceClip: t.clip, trackIndex: 0, fps: fps, style: request.style, captionGroupId: groupId, transformFor: transformFor)
+            let specs = CaptionBuilder.specs(for: cased, sourceClip: t.clip, trackIndex: 0, fps: fps, style: request.style, captionGroupId: groupId, transformFor: transformFor)
+            guard let anim = request.animation else { return specs }
+            return specs.map { spec in
+                var spec = spec
+                let tracks = anim.tracks(durationFrames: spec.durationFrames)
+                spec.scaleTrack = tracks.scale
+                spec.opacityTrack = tracks.opacity
+                return spec
+            }
         }
     }
 

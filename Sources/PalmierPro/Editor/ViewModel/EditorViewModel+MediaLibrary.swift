@@ -373,6 +373,9 @@ extension EditorViewModel {
         /// When nil the box is auto-fit to content and centered on the canvas.
         let transform: Transform?
         var captionGroupId: String? = nil
+        /// Optional clip-relative entrance animation (CapCut-style caption pop-in).
+        var scaleTrack: KeyframeTrack<AnimPair>? = nil
+        var opacityTrack: KeyframeTrack<Double>? = nil
     }
 
     /// Batch variant of `addTextClip` for agent flows.
@@ -416,6 +419,8 @@ extension EditorViewModel {
                 clip.textContent = spec.content
                 clip.textStyle = spec.style
                 clip.captionGroupId = spec.captionGroupId
+                clip.scaleTrack = spec.scaleTrack
+                clip.opacityTrack = spec.opacityTrack
                 timeline.tracks[spec.trackIndex].clips.append(clip)
                 createdIds[i] = clip.id
             }
