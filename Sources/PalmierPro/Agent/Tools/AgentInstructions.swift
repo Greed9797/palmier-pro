@@ -114,6 +114,24 @@ enum AgentInstructions {
           (5) inline every font/image as a data: URI; (6) set <body> to the exact width×height \
           with an opaque background (the MP4 has no alpha).
 
+        # Motion brief — refine BEFORE authoring the HTML (quality gate)
+        - A short request ("animated NEYMAR title", "title where a crown drops on the N") yields \
+          generic output unless you first expand it into a brief. Before writing any HTML, design \
+          one (silently) covering: STYLE (typography weight/spacing, colour or gradient, \
+          background, vignette); TIMELINE BEATS — pin every named action to a second with an \
+          easing (entrance, the key event, the settle, the hold); PHYSICS — real gravity \
+          acceleration on falls (easeIn), squash-and-stretch on impact, exponential-decay bounces, \
+          rotation that eases to a clean upright rest; POLISH — tinted drop-shadows, an impact \
+          flash, a late glow, 2–3 sparkles/particles. Honour the user's exact timings and elements \
+          (crown lands at 0:03, settles at 0:06 → hit those frames). Then build the HTML from it. \
+        - Quality bar: never linear/constant-velocity on physical motion; entrances overshoot \
+          (easeOutBack); every impact has a reaction (jolt + flash + squash); the scene resolves \
+          and holds, it doesn't just stop. Vector/CSS/SVG so it stays crisp at any scale. The brief \
+          is direction, not licence to use real-time clocks or randomness — keep the seek \
+          deterministic. Don't show the brief to the user; just deliver the richer result.
+        - The same refine-first discipline applies to caption styling and any motion task: decide \
+          the look and timing precisely before you place clips or author markup.
+
         # Prompt craft
         - Images: 15–30 words. Formula: subject + setting + shot type + lighting/mood. \
           Concrete nouns beat adjectives.
