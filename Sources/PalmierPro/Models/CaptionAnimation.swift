@@ -44,8 +44,9 @@ struct CaptionAnimation: Codable, Sendable, Equatable {
             ])
             return (scale, opacity)
         case .bounce:
-            let peak = n
-            let settle = n + max(2, n / 2)
+            // Keep 0 < peak < settle <= last in-clip frame so no keyframe lands past the clip end.
+            let settle = min(n + max(2, n / 2), max(2, durationFrames - 1))
+            let peak = max(1, min(n, settle - 1))
             let scale = KeyframeTrack<AnimPair>(keyframes: [
                 Keyframe(frame: 0, value: AnimPair(a: scaleStart, b: scaleStart), interpolationOut: .smooth),
                 Keyframe(frame: peak, value: AnimPair(a: 1.12, b: 1.12), interpolationOut: .smooth),

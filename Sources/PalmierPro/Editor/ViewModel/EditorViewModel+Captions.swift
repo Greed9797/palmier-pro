@@ -180,7 +180,9 @@ extension EditorViewModel {
         for (ref, result) in results {
             let clips = targets.filter { $0.clip.mediaRef == ref }
             guard !clips.isEmpty else { continue }
-            let phrases = request.wordsPerCaption > 0
+            // Word mode needs per-word timings; on-device recognition can return none —
+            // fall back to phrase mode (still animated) instead of producing zero captions.
+            let phrases = (request.wordsPerCaption > 0 && !result.words.isEmpty)
                 ? CaptionBuilder.wordPhrases(for: result.words, groupSize: request.wordsPerCaption, fits: { captionLineFits($0, style: request.style) })
                 : result.segments.flatMap {
                     CaptionBuilder.phrases(for: $0, fits: { captionLineFits($0, style: request.style) }, minDuration: AppTheme.Caption.minDisplayDuration)
