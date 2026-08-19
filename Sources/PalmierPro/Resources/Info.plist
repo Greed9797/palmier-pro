@@ -51,9 +51,7 @@
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>SUEnableAutomaticChecks</key>
-	<true/>
-	<key>SUFeedURL</key>
-	<string>https://raw.githubusercontent.com/palmier-io/palmier-pro/main/appcast.xml</string>
+	<false/>
 	<key>SUPublicEDKey</key>
 	<string>Jh56mT+7YZSRsLylQIPyP+4/ahRtTPzfQQaKDZoBsio=</string>
 	<key>UTExportedTypeDeclarations</key>
